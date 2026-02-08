@@ -1,0 +1,148 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local CoreGui = game:GetService("CoreGui")
+local LocalPlayer = Players.LocalPlayer
+
+local Whitelist = {
+    ["dodo1424x"] = true,
+    ["Dzmahrezdz"] = true,
+    ["Nat0000000000000000"] = true,
+    ["le_dz93100"] = true,
+}
+
+if not Whitelist[LocalPlayer.Name] then
+    LocalPlayer:Kick([[u are not whitelisted go buy the access in https://discord.gg/sFmfhdt3V2
+
+SMVLLHUB OT]])
+    task.wait(9e9)
+end
+
+local STRICT_SPEED = 29
+local isRunning = false
+local currentStage = 0 
+local selectedSide = "LEFT"
+
+local BYPASS = {
+    ["LEFT"] = Vector3.new(-354.3733825683594, -7.293224811553955, 26.22237777709961),
+    ["RIGHT"] = Vector3.new(-355.795166015625, -7.293224811553955, 94.97241973876953)
+}
+
+local PATHS = {
+    ["LEFT"] = {
+        pos1 = Vector3.new(-336.8303527832031, -5.194304943084717, 28.442214965820314),
+        pos2 = Vector3.new(-345.09197998046877, -7.293224811553955, 28.29584312438965),
+        pos3 = Vector3.new(-345.0397644042969, -7.293224811553955, 125.61198425292969)
+    },
+    ["RIGHT"] = {
+        pos1 = Vector3.new(-336.8336486816406, -5.1942925453186039, 91.79966735839844),
+        pos2 = Vector3.new(-344.50311279296877, -7.293224811553955, 91.9753189086914),
+        pos3 = Vector3.new(-344.1234436035156, -7.293224811553955, -5.077538967132568)
+    }
+}
+
+local function equipItem(name)
+    local tool = LocalPlayer.Backpack:FindFirstChild(name) or (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild(name))
+    if tool and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        LocalPlayer.Character.Humanoid:EquipTool(tool)
+        return tool
+    end
+    return nil
+end
+
+local function unequipAll()
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        LocalPlayer.Character.Humanoid:UnequipTools()
+    end
+end
+
+local screenGui = Instance.new("ScreenGui", (gethui and gethui()) or CoreGui)
+local mainFrame = Instance.new("Frame", screenGui)
+mainFrame.Size = UDim2.new(0, 220, 0, 180)
+mainFrame.Position = UDim2.new(0.5, -110, 0.4, 0)
+mainFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+mainFrame.BackgroundTransparency = 0.3
+mainFrame.ClipsDescendants = true
+Instance.new("UICorner", mainFrame)
+local mStroke = Instance.new("UIStroke", mainFrame)
+mStroke.Color = Color3.fromRGB(0, 255, 100)
+mStroke.Thickness = 2
+
+local function createSnow(p)
+    task.spawn(function()
+        while task.wait(0.05) do
+            if not p or not p.Parent then break end
+            local f = Instance.new("TextLabel", p)
+            f.Size = UDim2.new(0, 5, 0, 5)
+            f.Position = UDim2.new(math.random(), 0, -0.1, 0)
+            f.Text = "•"; f.TextColor3 = Color3.new(1,1,1); f.BackgroundTransparency = 1; f.ZIndex = 10
+            TweenService:Create(f, TweenInfo.new(3), {Position = UDim2.new(f.Position.X.Scale, math.random(-20,20), 1.1, 0), TextTransparency = 1}):Play()
+            task.delay(3, function() if f then f:Destroy() end end)
+        end
+    end)
+end
+createSnow(mainFrame)
+
+local title = Instance.new("TextLabel", mainFrame)
+title.Size = UDim2.new(1, 0, 0, 40); title.Text = "<i><b>SMVLLHUB AUTO STEAL</b></i>"; title.RichText = true; title.TextColor3 = Color3.fromRGB(0, 255, 100); title.BackgroundTransparency = 1; title.Font = Enum.Font.GothamBold; title.TextSize = 15
+
+local function createBtn(text, pos)
+    local b = Instance.new("TextButton", mainFrame)
+    b.Size = UDim2.new(1, -24, 0, 32); b.Position = pos; b.BackgroundColor3 = Color3.new(0,0,0); b.BackgroundTransparency = 0.3; b.Text = text; b.TextColor3 = Color3.fromRGB(0, 255, 100); b.Font = Enum.Font.GothamBold; b.TextSize = 11
+    Instance.new("UICorner", b); local s = Instance.new("UIStroke", b); s.Color = Color3.fromRGB(0, 255, 100); s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    return b
+end
+
+local sideBtn = createBtn("SIDE: LEFT", UDim2.new(0, 12, 0, 45))
+local tpStealBtn = createBtn("TP STEAL", UDim2.new(0, 12, 0, 85))
+local stopBtn = createBtn("FORCE STOP", UDim2.new(0, 12, 0, 125))
+
+tpStealBtn.MouseButton1Click:Connect(function()
+    local path = PATHS[selectedSide]
+    local bypassPos = BYPASS[selectedSide]
+    if path and bypassPos and LocalPlayer.Character then
+        local hrp = LocalPlayer.Character.HumanoidRootPart
+        
+        equipItem("Flying Carpet")
+        hrp.AssemblyLinearVelocity = Vector3.zero
+        hrp.CFrame = CFrame.new(bypassPos + Vector3.new(0, 1, 0))
+        
+        task.spawn(function()
+            task.wait(0.10)
+            hrp.CFrame = CFrame.new(path.pos1 + Vector3.new(0, 1, 0))
+            task.wait(0.45) 
+            unequipAll()
+            
+            isRunning = true
+            currentStage = 1
+        end)
+    end
+end)
+
+sideBtn.MouseButton1Click:Connect(function()
+    selectedSide = (selectedSide == "LEFT") and "RIGHT" or "LEFT"
+    sideBtn.Text = "SIDE: " .. selectedSide
+end)
+
+stopBtn.MouseButton1Click:Connect(function() isRunning = false; currentStage = 0 end)
+
+RunService.Heartbeat:Connect(function()
+    if not isRunning or not LocalPlayer.Character then return end
+    local hrp = LocalPlayer.Character.HumanoidRootPart
+    local path = PATHS[selectedSide]
+    local target = (currentStage == 1) and path.pos2 or path.pos3
+    local dir = (target - hrp.Position).Unit
+    local dist = (hrp.Position - target).Magnitude
+    hrp.AssemblyLinearVelocity = Vector3.new(dir.X * STRICT_SPEED, hrp.AssemblyLinearVelocity.Y, dir.Z * STRICT_SPEED)
+    if dist < 3 then
+        if currentStage == 1 then currentStage = 2 else isRunning = false end
+    end
+end)
+
+local d, s, p
+mainFrame.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then d = true s = i.Position p = mainFrame.Position end end)
+UserInputService.InputChanged:Connect(function(i) if d and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+    local delta = i.Position - s mainFrame.Position = UDim2.new(p.X.Scale, p.X.Offset + delta.X, p.Y.Scale, p.Y.Offset + delta.Y)
+end end)
+UserInputService.InputEnded:Connect(function() d = false end)
