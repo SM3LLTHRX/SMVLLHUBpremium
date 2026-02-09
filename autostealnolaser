@@ -11,6 +11,7 @@ local Whitelist = {
     ["Nat0000000000000000"] = true,
     ["le_dz93100"] = true,
     ["Babybel_44"] = true,
+-- 2j only
     ["niloxrx"] = true,
     ["riadh_bna09"] = true,
     ["wawa_wawa3040"] = true,
