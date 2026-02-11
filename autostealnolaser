@@ -14,9 +14,6 @@ local Whitelist = {
     ["Nat0000000000000008"] = true,
     ["le_dz93100"] = true,
     ["babybel_44"] = true,
-    ["nilroxrx"] = true,
-    ["riadh_bna09"] = true,
-    ["wawa_wawa3040"] = true,
     ["bilelbjr"] = true,
 }
 
