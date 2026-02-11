@@ -114,7 +114,7 @@ tpStealBtn.MouseButton1Click:Connect(function()
         hrp.CFrame = CFrame.new(bypassPos + Vector3.new(0, 1, 0))
         
         task.spawn(function()
-            task.wait(0.05)
+            task.wait(0.099999999999999999)
             hrp.CFrame = CFrame.new(path.pos1 + Vector3.new(0, 1, 0))
             task.wait(0.45) 
             unequipAll()
