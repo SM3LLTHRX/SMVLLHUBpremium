@@ -1,0 +1,188 @@
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local Camera = workspace.CurrentCamera
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "SmvllBoosterGUI_Ultimate"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = false
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+gui.Parent = PlayerGui
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 140, 0, 95)
+mainFrame.Position = UDim2.new(1, -153, 0.29, 0)
+mainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true 
+mainFrame.Parent = gui
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 10)
+corner.Parent = mainFrame
+
+local stroke = Instance.new("UIStroke")
+stroke.Thickness = 2
+stroke.Color = Color3.fromRGB(90, 170, 255)
+stroke.Parent = mainFrame
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -10, 0, 26)
+title.Position = UDim2.new(0, 5, 0, 5)
+title.BackgroundTransparency = 1
+title.Text = "SMVLL BOOSTER"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.TextSize = 14
+title.Font = Enum.Font.GothamBold
+title.TextXAlignment = Enum.TextXAlignment.Center
+title.Parent = mainFrame
+
+local speedInput = Instance.new("TextBox")
+speedInput.Size = UDim2.new(1, -24, 0, 26)
+speedInput.Position = UDim2.new(0, 12, 0, 36)
+speedInput.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+speedInput.Text = "100"
+speedInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+speedInput.TextSize = 14
+speedInput.Font = Enum.Font.Gotham
+speedInput.ClearTextOnFocus = false
+speedInput.Parent = mainFrame
+
+local inputCorner = Instance.new("UICorner")
+inputCorner.CornerRadius = UDim.new(0, 6)
+inputCorner.Parent = speedInput
+
+local inputStroke = Instance.new("UIStroke")
+inputStroke.Color = Color3.fromRGB(90, 170, 255)
+inputStroke.Parent = speedInput
+
+local toggleContainer = Instance.new("Frame")
+toggleContainer.Size = UDim2.new(0, 50, 0, 22)
+toggleContainer.Position = UDim2.new(0.5, -25, 1, -30)
+toggleContainer.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+toggleContainer.Parent = mainFrame
+
+local toggleCorner = Instance.new("UICorner")
+toggleCorner.CornerRadius = UDim.new(1, 0)
+toggleCorner.Parent = toggleContainer
+
+local clickBtn = Instance.new("TextButton")
+clickBtn.Size = UDim2.new(1, 0, 1, 0)
+clickBtn.BackgroundTransparency = 1
+clickBtn.Text = ""
+clickBtn.ZIndex = 10 -- Priorité de clic absolue
+clickBtn.Parent = toggleContainer
+
+local toggleCircle = Instance.new("Frame")
+toggleCircle.Size = UDim2.new(0, 18, 0, 18)
+toggleCircle.Position = UDim2.new(0, 2, 0.5, -9)
+toggleCircle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+toggleCircle.ZIndex = 2
+toggleCircle.Parent = toggleContainer
+
+local circleCorner = Instance.new("UICorner")
+circleCorner.CornerRadius = UDim.new(1, 0)
+circleCorner.Parent = toggleCircle
+
+local isEnabled = false
+local boostPower = 100
+local defaultFOV = 70
+
+task.spawn(function()
+    while true do
+        local hue = tick() % 5 / 5
+        local color = Color3.fromHSV(hue, 0.8, 1) -- Couleur RGB fluide
+        stroke.Color = color
+        inputStroke.Color = color
+        
+        if isEnabled then
+            toggleContainer.BackgroundColor3 = color
+        end
+        task.wait()
+    end
+end)
+
+local dragging, dragInput, dragStart, startPos
+mainFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = mainFrame.Position
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStart
+        mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
+end)
+
+RunService.Heartbeat:Connect(function()
+    local targetFOV = defaultFOV
+    
+    if isEnabled and LocalPlayer.Character then
+        local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        local hum = LocalPlayer.Character:FindFirstChild("Humanoid")
+        
+        if hrp and hum then
+            
+            if hrp:CanSetNetworkOwnership() then
+                pcall(function() hrp:SetNetworkOwner(LocalPlayer) end)
+            end
+            
+            hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+            hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+            hum:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding, false)
+
+            if hum.MoveDirection.Magnitude > 0 then
+
+                local velocityX = hum.MoveDirection.X * boostPower
+                local velocityZ = hum.MoveDirection.Z * boostPower
+                
+                hrp.AssemblyLinearVelocity = Vector3.new(velocityX, hrp.AssemblyLinearVelocity.Y, velocityZ)
+                
+                targetFOV = defaultFOV + math.clamp(boostPower / 6, 0, 45)
+            else
+
+                hrp.AssemblyLinearVelocity = Vector3.new(0, hrp.AssemblyLinearVelocity.Y, 0)
+            end
+        end
+    end
+    
+    if Camera then
+        Camera.FieldOfView = Camera.FieldOfView + (targetFOV - Camera.FieldOfView) * 0.15
+    end
+end)
+
+-- Input Cleaner (Chiffres seulement)
+speedInput:GetPropertyChangedSignal("Text"):Connect(function()
+    local text = speedInput.Text:gsub("%D+", "")
+    if text ~= "" then
+        boostPower = tonumber(text)
+    else
+        boostPower = 0
+    end
+end)
+
+clickBtn.MouseButton1Click:Connect(function()
+    isEnabled = not isEnabled
+    
+    local targetPos = isEnabled and UDim2.new(0, 30, 0.5, -9) or UDim2.new(0, 2, 0.5, -9)
+    TweenService:Create(toggleCircle, TweenInfo.new(0.25, Enum.EasingStyle.Elastic), {Position = targetPos}):Play()
+    
+    if not isEnabled then
+        TweenService:Create(toggleContainer, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(50, 50, 50)}):Play()
+    end
+end)
