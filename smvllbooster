@@ -153,7 +153,6 @@ RunService.Heartbeat:Connect(function()
                 
                 hrp.AssemblyLinearVelocity = Vector3.new(velocityX, hrp.AssemblyLinearVelocity.Y, velocityZ)
                 
-                targetFOV = defaultFOV + math.clamp(boostPower / 6, 0, 45)
             else
 
                 hrp.AssemblyLinearVelocity = Vector3.new(0, hrp.AssemblyLinearVelocity.Y, 0)
@@ -162,7 +161,7 @@ RunService.Heartbeat:Connect(function()
     end
     
     if Camera then
-        Camera.FieldOfView = Camera.FieldOfView + (targetFOV - Camera.FieldOfView) * 0.15
+        Camera.FieldOfView = defaultFOV
     end
 end)
 
