@@ -14,7 +14,6 @@ local Whitelist = {
     ["le_dz93100"] = true,
     ["babybel_44"] = true,
     ["bilelbjr"] = true,
--- boost 2j 12 février = 14 février y a plus 
     ["Slowzy041"] = true,
     ["Lacostedu12"] = true,
 }
