@@ -157,7 +157,7 @@ RunService.Heartbeat:Connect(function()
     end
     
     if Camera then
-        Camera.FieldOfView = Camera.FieldOfView + (targetFOV - Camera.FieldOfView) * 0.15
+       Camera.FieldOfView = defaultFOV
     end
 end)
 
