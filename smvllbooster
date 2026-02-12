@@ -150,7 +150,6 @@ RunService.Heartbeat:Connect(function()
                 local velocityZ = hum.MoveDirection.Z * boostPower
                 
                 hrp.AssemblyLinearVelocity = Vector3.new(velocityX, hrp.AssemblyLinearVelocity.Y, velocityZ)
-                targetFOV = defaultFOV + math.clamp(boostPower / 6, 0, 45)
             else
                 hrp.AssemblyLinearVelocity = Vector3.new(0, hrp.AssemblyLinearVelocity.Y, 0)
             end
