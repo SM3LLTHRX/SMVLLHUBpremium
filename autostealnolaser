@@ -11,11 +11,12 @@ local LocalPlayer = Players.LocalPlayer
 local Whitelist = {
     ["dodo1424x"] = true,
     ["Dzmahrezdz"] = true,
-    ["Nat0000000000000008"] = true,
     ["le_dz93100"] = true,
     ["babybel_44"] = true,
     ["bilelbjr"] = true,
+-- boost 2j 12 février = 14 février y a plus 
     ["Slowzy041"] = true,
+    ["lacostedu12"] = true,
 }
 
 if not Whitelist[LocalPlayer.Name] then
