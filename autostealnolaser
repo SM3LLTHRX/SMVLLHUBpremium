@@ -4,7 +4,6 @@ local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local CoreGui = game:GetService("CoreGui")
 local LocalPlayer = Players.LocalPlayer
-
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
@@ -63,10 +62,11 @@ local function unequipAll()
     end
 end
 
+-- Interface adaptée pour Mobile (Plus petite)
 local screenGui = Instance.new("ScreenGui", (gethui and gethui()) or CoreGui)
 local mainFrame = Instance.new("Frame", screenGui)
-mainFrame.Size = UDim2.new(0, 220, 0, 180)
-mainFrame.Position = UDim2.new(0.5, -110, 0.4, 0)
+mainFrame.Size = UDim2.new(0, 160, 0, 140) -- Taille réduite (au lieu de 220x180)
+mainFrame.Position = UDim2.new(0.5, -80, 0.4, 0)
 mainFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 mainFrame.BackgroundTransparency = 0.3
 mainFrame.ClipsDescendants = true
@@ -91,18 +91,20 @@ end
 createSnow(mainFrame)
 
 local title = Instance.new("TextLabel", mainFrame)
-title.Size = UDim2.new(1, 0, 0, 40); title.Text = "<i><b>SMVLLHUB AUTO STEAL</b></i>"; title.RichText = true; title.TextColor3 = Color3.fromRGB(0, 255, 100); title.BackgroundTransparency = 1; title.Font = Enum.Font.GothamBold; title.TextSize = 15
+title.Size = UDim2.new(1, 0, 0, 30) -- Titre plus compact
+title.Text = "<i><b>SMVLLHUB</b></i>"; title.RichText = true; title.TextColor3 = Color3.fromRGB(0, 255, 100); title.BackgroundTransparency = 1; title.Font = Enum.Font.GothamBold; title.TextSize = 12
 
 local function createBtn(text, pos)
     local b = Instance.new("TextButton", mainFrame)
-    b.Size = UDim2.new(1, -24, 0, 32); b.Position = pos; b.BackgroundColor3 = Color3.new(0,0,0); b.BackgroundTransparency = 0.3; b.Text = text; b.TextColor3 = Color3.fromRGB(0, 255, 100); b.Font = Enum.Font.GothamBold; b.TextSize = 11
+    b.Size = UDim2.new(1, -16, 0, 28); b.Position = pos; b.BackgroundColor3 = Color3.new(0,0,0); b.BackgroundTransparency = 0.3; b.Text = text; b.TextColor3 = Color3.fromRGB(0, 255, 100); b.Font = Enum.Font.GothamBold; b.TextSize = 10
     Instance.new("UICorner", b); local s = Instance.new("UIStroke", b); s.Color = Color3.fromRGB(0, 255, 100); s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     return b
 end
 
-local sideBtn = createBtn("SIDE: LEFT", UDim2.new(0, 12, 0, 45))
-local tpStealBtn = createBtn("TP STEAL", UDim2.new(0, 12, 0, 85))
-local stopBtn = createBtn("FORCE STOP", UDim2.new(0, 12, 0, 125))
+-- Positions ajustées pour le petit cadre
+local sideBtn = createBtn("SIDE: LEFT", UDim2.new(0, 8, 0, 35))
+local tpStealBtn = createBtn("TP STEAL", UDim2.new(0, 8, 0, 68))
+local stopBtn = createBtn("FORCE STOP", UDim2.new(0, 8, 0, 101))
 
 tpStealBtn.MouseButton1Click:Connect(function()
     local path = PATHS[selectedSide]
@@ -115,7 +117,7 @@ tpStealBtn.MouseButton1Click:Connect(function()
         hrp.CFrame = CFrame.new(bypassPos + Vector3.new(0, 1, 0))
         
         task.spawn(function()
-            task.wait(0.099999999999999999)
+            task.wait(0.1)
             hrp.CFrame = CFrame.new(path.pos1 + Vector3.new(0, 1, 0))
             task.wait(0.45) 
             unequipAll()
