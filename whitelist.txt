@@ -1,7 +1,7 @@
 --config
 whitelist=true
 --lifetime
-dodo1424x
-Enes_dkr8
+dodo1424x,
+Enes_dkr8,
 --1 mois
 Luffy_yannis,
