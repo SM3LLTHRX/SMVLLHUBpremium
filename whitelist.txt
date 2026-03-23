@@ -1,5 +1,5 @@
 --config
-whitelist=false
+whitelist=true
 --lifetime
 dodo1424x,
 Enes_dkr8,
