@@ -9,3 +9,15 @@ Tiziano21349856,
 Luffy_yannis,
 --une semaine psk je suis un bon
 Nsk78300,
+-- // BLACKLIST
+local BLACKLIST = {
+    "skm34k",
+}
+
+local localName = game.Players.LocalPlayer.Name:lower()
+for _, banned in ipairs(BLACKLIST) do
+    if localName == banned:lower() then
+        game.Players.LocalPlayer:Kick("⛔ Tu es blacklist de SMVLL HUB petit trou du cul.") 
+        return
+    end
+end
