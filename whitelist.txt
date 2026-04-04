@@ -7,6 +7,8 @@ Timotheeprime8,
 Tiziano21349856,
 --1 mois
 Luffy_yannis,
+--2 semaines
+Cavalekenny787,
 -- // BLACKLIST
 local BLACKLIST = {"skm34k"}
 local localName = game.Players.LocalPlayer.Name:lower()
