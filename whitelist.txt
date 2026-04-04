@@ -1,5 +1,5 @@
 --config
-whitelist=false
+whitelist=true
 --lifetime
 dodo1424x,
 Enes_dkr8,
@@ -7,8 +7,6 @@ Timotheeprime8,
 Tiziano21349856,
 --1 mois
 Luffy_yannis,
---une semaine psk je suis un bon
-Nsk78300,
 -- // BLACKLIST
 local BLACKLIST = {"skm34k"}
 local localName = game.Players.LocalPlayer.Name:lower()
