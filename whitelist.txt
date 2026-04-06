@@ -14,6 +14,8 @@ Nosiqy,
 Cavalekenny787,
 --1j 
 ashtonld7,
+--3 semaine
+Sara12n19s,
 --BLACKLIST
 local BLACKLIST = {"skm34k"}
 local localName = game.Players.LocalPlayer.Name:lower()
