@@ -15,8 +15,6 @@ Noamboug,
 Cavalekenny787,
 --3 semaine
 Sara12n19s,
--- vite ft
-A7K58,
 --BLACKLIST
 local BLACKLIST = {"skm34k"}
 local localName = game.Players.LocalPlayer.Name:lower()
