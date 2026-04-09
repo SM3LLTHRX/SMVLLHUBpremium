@@ -1,27 +1,14 @@
 --config
 whitelist=true
---lifetime
 Enes_dkr8,
+dodo1424x,
 Timotheeprime8,
 Tiziano21349856,
 Youngboyaj96,
---1 mois
-nsk78300,
-Dark_legend0024,
-Nosiqy,
-Noamboug,
-musab02345,
---2 semaines
-Cavalekenny787,
---3 semaine
-Sara12n19s,
---BLACKLIST
-local BLACKLIST = {"skm34k"}
-local localName = game.Players.LocalPlayer.Name:lower()
-for _, banned in ipairs(BLACKLIST) do
-    if localName == banned:lower() then
-        game.Players.LocalPlayer:Kick("⛔ Tu es blacklist de SMVLL HUB petit trou du cul.")
-        return
-    end
-end
-dodo1424x,
+nsk78300|1778371200,
+Dark_legend0024|1778371200,
+Nosiqy|1778371200,
+Noamboug|1778371200,
+musab02345|1778371200,
+Cavalekenny787|1776988800,
+Sara12n19s|1777593600,
