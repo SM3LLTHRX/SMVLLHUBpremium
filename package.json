@@ -1,0 +1,11 @@
+{
+  "name": "smvll-bot",
+  "version": "1.0.0",
+  "main": "Index.js",
+  "scripts": { "start": "node Index.js" },
+  "dependencies": {
+    "discord.js": "^14.14.1",
+    "axios": "^1.6.0",
+    "ms": "^2.1.3"
+  }
+}
