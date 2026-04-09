@@ -1,6 +1,6 @@
 const {
     Client, GatewayIntentBits, EmbedBuilder,
-    REST, Routes, SlashCommandBuilder, PermissionFlagsBits
+    REST, Routes, SlashCommandBuilder
 } = require('discord.js');
 const axios = require('axios');
 const ms = require('ms');
@@ -12,16 +12,14 @@ const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const REPO = "SM3LLTHRX/SMVLLHUBpremium";
 const LOG_CHANNEL_ID = process.env.LOG_CHANNEL_ID;
 const CLIENT_ID = process.env.CLIENT_ID;
-const OWNER_ID = process.env.OWNER_ID; // ton ID Discord
+const OWNER_ID = process.env.OWNER_ID;
 
-// ─── Couleurs ───
 const GREEN = 0x00FF64;
 const RED = 0xFF4444;
 const YELLOW = 0xFFCC00;
 const BLUE = 0x4488FF;
 const ORANGE = 0xFF8800;
 
-// ─── GitHub ───
 async function getFile(filename = "whitelist.txt") {
     const res = await axios.get(
         `https://api.github.com/repos/${REPO}/contents/${filename}`,
@@ -45,17 +43,16 @@ async function updateFile(content, sha, filename = "whitelist.txt") {
     );
 }
 
-// ─── Parse/Format ───
 function parseUsers(content) {
     return content.split("\n").map(l => l.trim()).filter(l => l.length > 0);
 }
 
 function getUserName(line) {
-    return line.split(/[|,]/)[0].trim();
+    return line.split(",")[0].trim();
 }
 
 function getExpiry(line) {
-    const match = line.match(/\|(\d+)/);
+    const match = line.match(/,(\d+)/);
     return match ? parseInt(match[1]) : null;
 }
 
@@ -84,10 +81,9 @@ function formatExpiry(line) {
 function buildEntry(user, time) {
     if (time === "lifetime") return `${user},`;
     const expire = Math.floor((Date.now() + ms(time)) / 1000);
-    return `${user}|${expire},`;
+    return `${user},${expire}`;
 }
 
-// ─── Log ───
 function sendLog(title, fields, color = GREEN) {
     const channel = client.channels.cache.get(LOG_CHANNEL_ID);
     if (!channel) return;
@@ -103,37 +99,30 @@ function sendLog(title, fields, color = GREEN) {
     });
 }
 
-// ─── Guard owner ───
 function isOwner(interaction) {
     return interaction.user.id === OWNER_ID;
 }
 
-// ─── Notif expiration (check toutes les heures) ───
 async function checkExpiringSoon() {
     const channel = client.channels.cache.get(LOG_CHANNEL_ID);
     if (!channel) return;
-
     try {
         let { content } = await getFile();
         const now = Math.floor(Date.now() / 1000);
-        const soon = 3 * 24 * 3600; // 3 jours
-
+        const soon = 3 * 24 * 3600;
         const expiringSoon = parseUsers(content).filter(line => {
             const exp = getExpiry(line);
             if (!exp) return false;
             const diff = exp - now;
             return diff > 0 && diff <= soon;
         });
-
         if (expiringSoon.length === 0) return;
-
         const list = expiringSoon.map(line => {
             const name = getUserName(line);
             const exp = getExpiry(line);
             const days = Math.ceil((exp - now) / 86400);
             return `• **${name}** — expire dans **${days}j**`;
         }).join("\n");
-
         channel.send({
             embeds: [
                 new EmbedBuilder()
@@ -149,7 +138,6 @@ async function checkExpiringSoon() {
     }
 }
 
-// ─── Commandes ───
 const commands = [
     new SlashCommandBuilder()
         .setName('wl-add')
@@ -212,23 +200,18 @@ const commands = [
 
 ].map(c => c.toJSON());
 
-// ─── Ready ───
 client.once('ready', async () => {
     console.log(`✅ Bot connecté : ${client.user.tag}`);
     const rest = new REST({ version: '10' }).setToken(TOKEN);
     await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
     console.log("✅ Commandes enregistrées");
-
-    // Check expirations toutes les heures
     setInterval(checkExpiringSoon, 60 * 60 * 1000);
-    checkExpiringSoon(); // check au démarrage aussi
+    checkExpiringSoon();
 });
 
-// ─── Interactions ───
 client.on('interactionCreate', async interaction => {
     if (!interaction.isChatInputCommand()) return;
 
-    // Owner only
     if (!isOwner(interaction)) {
         return interaction.reply({
             embeds: [new EmbedBuilder().setDescription("⛔ Accès refusé.").setColor(RED)],
@@ -236,14 +219,10 @@ client.on('interactionCreate', async interaction => {
         });
     }
 
-    await interaction.deferReply({ ephemeral: true }); // jaune = visible que par toi
+    await interaction.deferReply({ ephemeral: true });
 
     try {
         const cmd = interaction.commandName;
-
-        // ══════════════════════════════════════
-        // WHITELIST
-        // ══════════════════════════════════════
 
         if (cmd === 'wl-add') {
             const user = interaction.options.getString('user');
@@ -295,7 +274,7 @@ client.on('interactionCreate', async interaction => {
             await interaction.editReply({
                 embeds: [new EmbedBuilder()
                     .setTitle("🗑️ User retiré")
-                    .setDescription(`**${user}** a été retiré de la whitelist.`)
+                    .setDescription(`**${user}** retiré de la whitelist.`)
                     .setColor(RED)]
             });
 
@@ -356,7 +335,7 @@ client.on('interactionCreate', async interaction => {
                 ? currentExp * 1000
                 : Date.now();
             const newExp = Math.floor((base + ms(time)) / 1000);
-            lines[idx] = `${user}|${newExp},`;
+            lines[idx] = `${user},${newExp}`;
             await updateFile(lines.join("\n"), sha);
 
             const days = Math.ceil((newExp - Math.floor(Date.now() / 1000)) / 86400);
@@ -493,13 +472,12 @@ client.on('interactionCreate', async interaction => {
             ], RED);
         }
 
-        // ══════════════════════════════════════
-        // BLACKLIST
-        // ══════════════════════════════════════
-
         else if (cmd === 'bl-add') {
             const user = interaction.options.getString('user');
-            let { content, sha } = await getFile("blacklist.txt").catch(() => ({ content: "", sha: null }));
+            let blFile = await getFile("blacklist.txt").catch(() => null);
+
+            let content = blFile ? blFile.content : "";
+            let sha = blFile ? blFile.sha : null;
 
             if (parseUsers(content).some(l => l.toLowerCase() === user.toLowerCase())) {
                 return interaction.editReply({
@@ -525,7 +503,7 @@ client.on('interactionCreate', async interaction => {
             await interaction.editReply({
                 embeds: [new EmbedBuilder()
                     .setTitle("🚫 User blacklisté")
-                    .setDescription(`**${user}** a été ajouté au blacklist.`)
+                    .setDescription(`**${user}** ajouté au blacklist.`)
                     .setColor(RED)]
             });
 
