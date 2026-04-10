@@ -1,7 +1,7 @@
 --config
 whitelist=true
 Enes_dkr8,
-Dodo1424x,1778400074
+dodo1424x,NaN
 Timotheeprime8,
 Tiziano21349856,
 Youngboyaj96,
