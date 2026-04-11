@@ -140,6 +140,10 @@ async function checkExpiringSoon() {
 
 const commands = [
     new SlashCommandBuilder()
+        .setName('help')
+        .setDescription('Afficher le guide des formats de temps et commandes'),
+
+    new SlashCommandBuilder()
         .setName('wl-add')
         .setDescription('Ajouter un user à la whitelist')
         .addStringOption(o => o.setName('user').setDescription('Nom Roblox').setRequired(true))
@@ -224,7 +228,27 @@ client.on('interactionCreate', async interaction => {
     try {
         const cmd = interaction.commandName;
 
-        if (cmd === 'wl-add') {
+        if (cmd === 'help') {
+            await interaction.editReply({
+                embeds: [new EmbedBuilder()
+                    .setTitle("📖 Guide d'utilisation - Formats de Temps")
+                    .setDescription("Voici comment spécifier la durée pour les commandes utilisant l'option `time` (comme `/wl-add` ou `/wl-edit`). Le bot utilise les abréviations anglaises.")
+                    .addFields(
+                        { name: "⏱️ Secondes", value: "`1s`, `30s`", inline: true },
+                        { name: "⏱️ Minutes", value: "`1m`, `15m`", inline: true },
+                        { name: "⏱️ Heures", value: "`1h`, `12h` (Hours)", inline: true },
+                        { name: "📅 Jours", value: "`1d`, `3d` (Days)", inline: true },
+                        { name: "📅 Semaines", value: "`1w`, `2w` (Weeks)", inline: true },
+                        { name: "📅 Années", value: "`1y` (Years)", inline: true },
+                        { name: "♾️ À vie", value: "`lifetime` (Pas d'expiration)", inline: false }
+                    )
+                    .setColor(BLUE)
+                    .setFooter({ text: "SMVLL HUB • HS CORP" })
+                ]
+            });
+        }
+
+        else if (cmd === 'wl-add') {
             const user = interaction.options.getString('user');
             const time = interaction.options.getString('time');
             let { content, sha } = await getFile();
