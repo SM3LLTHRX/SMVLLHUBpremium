@@ -823,7 +823,7 @@ client.on('interactionCreate', async interaction => {
                         embeds: [new EmbedBuilder()
                             .setTitle("🚀 SMVLL SEMI TP")
                             .setDescription(
-                                "`getgenv().SCRIPT_KEY = \"KEYLESS\"\nloadstring(game:HttpGet(\"https://api.jnkie.com/api/v1/luascripts/public/ec68356c9cf8b03319aee4ada6abab24035cc18ce0ecf8bd9e6346917c71b8b8/download\"))()`
+                                "```lua\ngetgenv().SCRIPT_KEY = \"KEYLESS\"\nloadstring(game:HttpGet(\"https://api.jnkie.com/api/v1/luascripts/public/ec68356c9cf8b03319aee4ada6abab24035cc18ce0ecf8bd9e6346917c71b8b8/download\"))()\n```"
                             )
                             .addFields({
                                 name: "💬 Support",
@@ -867,7 +867,7 @@ client.on('interactionCreate', async interaction => {
                     embeds: [new EmbedBuilder()
                         .setTitle("🚀 SMVLL SEMI TP")
                         .setDescription(
-                            "```lua\ngetgenv().SCRIPT_KEY = \"KEYLESS\"\nloadstring(game:HttpGet(\"https://api.jnkie.com/api/v1/luascripts/public/ec68356c9cf8b03319aee4ada6abab24035cc18ce0ecf8bd9e6346917c71b8b8/download\"))()\n```"
+                            "`getgenv().SCRIPT_KEY = \"KEYLESS\"\nloadstring(game:HttpGet(\"https://api.jnkie.com/api/v1/luascripts/public/ec68356c9cf8b03319aee4ada6abab24035cc18ce0ecf8bd9e6346917c71b8b8/download\"))()`"
                         )
                         .addFields({
                             name: "💬 Support",
