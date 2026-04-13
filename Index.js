@@ -17,6 +17,7 @@ const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const REPO         = “SM3LLTHRX/SMVLLHUBpremium”;
 const LOG_CHANNEL_ID = process.env.LOG_CHANNEL_ID;
 const CLIENT_ID    = process.env.CLIENT_ID;
+const GUILD_ID      = process.env.GUILD_ID;
 const OWNER_ID     = process.env.OWNER_ID;
 const PREMIUM_ROLE_ID = “1486435751297159378”;
 
@@ -282,7 +283,8 @@ new SlashCommandBuilder()
 client.once(‘ready’, async () => {
 console.log(`✅ Bot connecté : ${client.user.tag}`);
 const rest = new REST({ version: ‘10’ }).setToken(TOKEN);
-await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
+const GUILD_ID = process.env.GUILD_ID;
+await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: commands });
 console.log(“✅ Commandes enregistrées”);
 setInterval(checkExpiringSoon, 60 * 60 * 1000);
 checkExpiringSoon();
