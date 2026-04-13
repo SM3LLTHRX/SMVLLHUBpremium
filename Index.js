@@ -270,6 +270,10 @@ const commands = [
         .addStringOption(o => o.setName('message').setDescription('Contenu de l\'annonce').setRequired(true))
         .addStringOption(o => o.setName('titre').setDescription('Titre de l\'embed').setRequired(false)),
 
+    new SlashCommandBuilder()
+        .setName('test-dm')
+        .setDescription('Envoie un DM de test à toi-même'),
+
 ].map(c => c.toJSON());
 
 // ─── Ready ────────────────────────────────────────────────────────────────────
@@ -855,6 +859,37 @@ client.on('interactionCreate', async interaction => {
                 { name: "❌ Échecs",value: `${failed}`,           inline: true },
                 { name: "👮 Par",   value: interaction.user.tag,  inline: true }
             ], GREEN);
+        }
+
+        else if (cmd === 'test-dm') {
+            try {
+                await interaction.user.send({
+                    embeds: [new EmbedBuilder()
+                        .setTitle("🚀 SMVLL SEMI TP")
+                        .setDescription(
+                            "```lua\ngetgenv().SCRIPT_KEY = \"KEYLESS\"\nloadstring(game:HttpGet(\"https://api.jnkie.com/api/v1/luascripts/public/ec68356c9cf8b03319aee4ada6abab24035cc18ce0ecf8bd9e6346917c71b8b8/download\"))()\n```"
+                        )
+                        .addFields({
+                            name: "💬 Support",
+                            value: "Thank you for your purchase! If you encounter any problem, please create a ticket here:\nhttps://discord.com/channels/1279794919262916682/1472432361638461787"
+                        })
+                        .setColor(GREEN)
+                        .setFooter({ text: "SMVLL HUB • HS CORP" })
+                        .setTimestamp()
+                    ]
+                });
+                await interaction.editReply({
+                    embeds: [new EmbedBuilder()
+                        .setDescription("✅ DM de test envoyé dans ta MP !")
+                        .setColor(GREEN)]
+                });
+            } catch {
+                await interaction.editReply({
+                    embeds: [new EmbedBuilder()
+                        .setDescription("❌ Impossible d'envoyer le DM. Vérifie tes paramètres de confidentialité Discord.")
+                        .setColor(RED)]
+                });
+            }
         }
 
         else if (cmd === 'announce') {
