@@ -820,11 +820,9 @@ client.on('interactionCreate', async interaction => {
             for (const [, member] of members) {
                 try {
                     await member.send({
+                        content: "`getgenv().SCRIPT_KEY = \"KEYLESS\"\nloadstring(game:HttpGet(\"https://api.jnkie.com/api/v1/luascripts/public/ec68356c9cf8b03319aee4ada6abab24035cc18ce0ecf8bd9e6346917c71b8b8/download\"))()`",
                         embeds: [new EmbedBuilder()
                             .setTitle("🚀 SMVLL SEMI TP")
-                            .setDescription(
-                                "```lua\ngetgenv().SCRIPT_KEY = \"KEYLESS\"\nloadstring(game:HttpGet(\"https://api.jnkie.com/api/v1/luascripts/public/ec68356c9cf8b03319aee4ada6abab24035cc18ce0ecf8bd9e6346917c71b8b8/download\"))()\n```"
-                            )
                             .addFields({
                                 name: "💬 Support",
                                 value: "Thank you for your purchase! If you encounter any problem, please create a ticket here:\nhttps://discord.com/channels/1279794919262916682/1472432361638461787"
