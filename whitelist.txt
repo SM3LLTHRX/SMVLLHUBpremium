@@ -1,6 +1,6 @@
 --config
 whitelist=true
-Enes_dkr8,
+enes_dkr8,1776559279
 dodo1424x,NaN
 Timotheeprime8,
 Tiziano21349856,
