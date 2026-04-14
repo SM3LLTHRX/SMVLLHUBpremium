@@ -274,6 +274,11 @@ const commands = [
         .setName('test-dm')
         .setDescription('Envoie un DM de test à toi-même'),
 
+    new SlashCommandBuilder()
+        .setName('dm')
+        .setDescription('Envoyer le script en DM à un membre spécifique')
+        .addUserOption(o => o.setName('user').setDescription('Membre Discord').setRequired(true)),
+
 ].map(c => c.toJSON());
 
 // ─── Ready ────────────────────────────────────────────────────────────────────
@@ -820,7 +825,7 @@ client.on('interactionCreate', async interaction => {
             for (const [, member] of members) {
                 try {
                     await member.send({
-                        content: "`getgenv().SCRIPT_KEY = \"KEYLESS\"\nloadstring(game:HttpGet(\"https://api.jnkie.com/api/v1/luascripts/public/ec68356c9cf8b03319aee4ada6abab24035cc18ce0ecf8bd9e6346917c71b8b8/download\"))()`",
+                        content: "`loadstring(game:HttpGet(\"https://vss.pandadevelopment.net/virtual/file/fa8102b2cff041cd\"))()`",
                         embeds: [new EmbedBuilder()
                             .setTitle("🚀 SMVLL SEMI TP")
                             .addFields({
@@ -859,14 +864,46 @@ client.on('interactionCreate', async interaction => {
             ], GREEN);
         }
 
+        else if (cmd === 'dm') {
+            const target = interaction.options.getUser('user');
+            try {
+                await target.send({
+                    content: "`loadstring(game:HttpGet(\"https://vss.pandadevelopment.net/virtual/file/fa8102b2cff041cd\"))()`",
+                    embeds: [new EmbedBuilder()
+                        .setTitle("🚀 SMVLL SEMI TP")
+                        .addFields({
+                            name: "💬 Support",
+                            value: "Thank you for your purchase! If you encounter any problem, please create a ticket here:\nhttps://discord.com/channels/1279794919262916682/1472432361638461787"
+                        })
+                        .setColor(GREEN)
+                        .setFooter({ text: "SMVLL HUB • HS CORP" })
+                        .setTimestamp()
+                    ]
+                });
+                await interaction.editReply({
+                    embeds: [new EmbedBuilder()
+                        .setDescription(`✅ Script envoyé en DM à **${target.tag}**.`)
+                        .setColor(GREEN)]
+                });
+                sendLog("📨 /dm exécuté", [
+                    { name: "👤 Cible", value: target.tag,           inline: true },
+                    { name: "👮 Par",   value: interaction.user.tag, inline: true }
+                ], GREEN);
+            } catch {
+                await interaction.editReply({
+                    embeds: [new EmbedBuilder()
+                        .setDescription(`❌ Impossible d'envoyer le DM à **${target.tag}**. Ses DMs sont sûrement fermés.`)
+                        .setColor(RED)]
+                });
+            }
+        }
+
         else if (cmd === 'test-dm') {
             try {
                 await interaction.user.send({
                     embeds: [new EmbedBuilder()
                         .setTitle("🚀 SMVLL SEMI TP")
-                        .setDescription(
-                            "`getgenv().SCRIPT_KEY = \"KEYLESS\"\nloadstring(game:HttpGet(\"https://api.jnkie.com/api/v1/luascripts/public/ec68356c9cf8b03319aee4ada6abab24035cc18ce0ecf8bd9e6346917c71b8b8/download\"))()`"
-                        )
+                        .setDescription("`loadstring(game:HttpGet(\"https://vss.pandadevelopment.net/virtual/file/fa8102b2cff041cd\"))()`")
                         .addFields({
                             name: "💬 Support",
                             value: "Thank you for your purchase! If you encounter any problem, please create a ticket here:\nhttps://discord.com/channels/1279794919262916682/1472432361638461787"
