@@ -1,6 +1,5 @@
 --config
 whitelist=true
-enes_dkr8,1776559279
 dodo1424x,
 Timotheeprime8,
 Tiziano21349856,
@@ -31,7 +30,6 @@ moins200aa,1777979207
 ancar2334,1778293356
 ethnbrnt,
 bilelbjr,1776633457
-eosguridogremio2011,1776621589
 YOGQPVP,
-LaFRENCHSM0,1776591010
 anteikuxtlich,1777127658
+ninoxx311,1776625668
