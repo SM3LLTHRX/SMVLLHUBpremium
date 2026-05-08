@@ -5,6 +5,13 @@ const {
 const axios = require('axios');
 const ms = require('ms');
 
+function parseDuration(str) {
+    if (!str) return undefined;
+    const moMatch = str.match(/^(\d+)\s*mo$/i);
+    if (moMatch) return parseInt(moMatch[1]) * 30 * 24 * 60 * 60 * 1000;
+    return ms(str);
+}
+
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -103,7 +110,7 @@ function formatExpiry(line) {
 
 function buildEntry(user, time) {
     if (time === "lifetime") return `${user},`;
-    const expire = Math.floor((Date.now() + ms(time)) / 1000);
+    const expire = Math.floor((Date.now() + parseDuration(time)) / 1000);
     return `${user},${expire}`;
 }
 
@@ -513,7 +520,7 @@ client.on('interactionCreate', async interaction => {
             const base = currentExp && currentExp > Math.floor(Date.now() / 1000)
                 ? currentExp * 1000
                 : Date.now();
-            const newExp = Math.floor((base + ms(time)) / 1000);
+            const newExp = Math.floor((base + parseDuration(time)) / 1000);
             lines[idx] = `${user},${newExp}`;
             await updateFile(lines.join("\n"), sha);
 
@@ -965,11 +972,8 @@ client.on('interactionCreate', async interaction => {
             const since = interaction.options.getString('since');
             const time  = interaction.options.getString('time');
 
-            let sinceMs;
-            try {
-                sinceMs = ms(since);
-                if (!sinceMs) throw new Error();
-            } catch {
+            const sinceMs = parseDuration(since);
+            if (!sinceMs) {
                 return interaction.editReply({
                     embeds: [new EmbedBuilder()
                         .setDescription(`❌ Format \`since\` invalide : \`${since}\`. Exemples : \`1d\`, \`1w\`, \`1mo\`, \`3mo\``)
@@ -977,17 +981,12 @@ client.on('interactionCreate', async interaction => {
                 });
             }
 
-            if (time !== 'lifetime') {
-                try {
-                    const t = ms(time);
-                    if (!t) throw new Error();
-                } catch {
-                    return interaction.editReply({
-                        embeds: [new EmbedBuilder()
-                            .setDescription(`❌ Format \`time\` invalide : \`${time}\`. Exemples : \`1w\`, \`1mo\`, \`lifetime\``)
-                            .setColor(RED)]
-                    });
-                }
+            if (time !== 'lifetime' && !parseDuration(time)) {
+                return interaction.editReply({
+                    embeds: [new EmbedBuilder()
+                        .setDescription(`❌ Format \`time\` invalide : \`${time}\`. Exemples : \`1w\`, \`1mo\`, \`lifetime\``)
+                        .setColor(RED)]
+                });
             }
 
             let { content, sha } = await getFile();
