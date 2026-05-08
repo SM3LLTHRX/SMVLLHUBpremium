@@ -307,6 +307,12 @@ const commands = [
         .setName('status')
         .setDescription('Dashboard complet — WL, BL et stats du bot'),
 
+    new SlashCommandBuilder()
+        .setName('wl-renew-expired')
+        .setDescription('Redonner du temps à tous les expirés depuis X (ex: 1w = expirés il y a max 1 semaine)')
+        .addStringOption(o => o.setName('since').setDescription('Expirés il y a au max (ex: 1d, 1w, 1mo, 3mo)').setRequired(true))
+        .addStringOption(o => o.setName('time').setDescription('Durée à leur accorder (ex: 1w, 1mo, lifetime)').setRequired(true)),
+
 ].map(c => c.toJSON());
 
 // ─── Ready ────────────────────────────────────────────────────────────────────
@@ -350,7 +356,7 @@ client.on('interactionCreate', async interaction => {
                         { name: "📅 Années",      value: "`1y`",           inline: true },
                         { name: "♾️ À vie",       value: "`lifetime`",     inline: false },
                         { name: "━━━━━━━━━━━━━━━━", value: "**Commandes**", inline: false },
-                        { name: "📋 Whitelist",   value: "`/wl-add` `/wl-remove` `/wl-edit` `/wl-renew` `/wl-check` `/wl-list` `/wl-stats` `/wl-expire-soon` `/wl-clear` `/wl-purge-expired` `/wl-import` `/wl-search` `/wl-transfer` `/wl-batch-remove` `/wl-export`", inline: false },
+                        { name: "📋 Whitelist",   value: "`/wl-add` `/wl-remove` `/wl-edit` `/wl-renew` `/wl-check` `/wl-list` `/wl-stats` `/wl-expire-soon` `/wl-clear` `/wl-purge-expired` `/wl-import` `/wl-search` `/wl-transfer` `/wl-batch-remove` `/wl-export` `/wl-renew-expired`", inline: false },
                         { name: "🚫 Blacklist",   value: "`/bl-add` `/bl-remove` `/bl-list` `/bl-check` `/bl-clear` `/bl-import`", inline: false },
                         { name: "📨 Messages",    value: "`/dmall` `/announce` `/dm` `/test-dm`", inline: false },
                         { name: "🔧 Utilitaires", value: "`/ping` `/botinfo` `/status`",          inline: false }
@@ -953,6 +959,92 @@ client.on('interactionCreate', async interaction => {
                         .setColor(RED)]
                 });
             }
+        }
+
+        else if (cmd === 'wl-renew-expired') {
+            const since = interaction.options.getString('since');
+            const time  = interaction.options.getString('time');
+
+            let sinceMs;
+            try {
+                sinceMs = ms(since);
+                if (!sinceMs) throw new Error();
+            } catch {
+                return interaction.editReply({
+                    embeds: [new EmbedBuilder()
+                        .setDescription(`❌ Format \`since\` invalide : \`${since}\`. Exemples : \`1d\`, \`1w\`, \`1mo\`, \`3mo\``)
+                        .setColor(RED)]
+                });
+            }
+
+            if (time !== 'lifetime') {
+                try {
+                    const t = ms(time);
+                    if (!t) throw new Error();
+                } catch {
+                    return interaction.editReply({
+                        embeds: [new EmbedBuilder()
+                            .setDescription(`❌ Format \`time\` invalide : \`${time}\`. Exemples : \`1w\`, \`1mo\`, \`lifetime\``)
+                            .setColor(RED)]
+                    });
+                }
+            }
+
+            let { content, sha } = await getFile();
+            const now   = Math.floor(Date.now() / 1000);
+            const lines = parseUsers(content);
+
+            const toRenew = lines.filter(l => {
+                const exp = getExpiry(l);
+                if (!exp) return false;
+                if (exp >= now) return false;
+                const expiredAgoMs = (now - exp) * 1000;
+                return expiredAgoMs <= sinceMs;
+            });
+
+            if (toRenew.length === 0) {
+                return interaction.editReply({
+                    embeds: [new EmbedBuilder()
+                        .setDescription(`✅ Aucun user expiré dans les derniers **${since}**.`)
+                        .setColor(YELLOW)]
+                });
+            }
+
+            const renewed = [];
+            const updatedLines = lines.map(l => {
+                if (!toRenew.includes(l)) return l;
+                const name   = getUserName(l);
+                const newEntry = buildEntry(name, time);
+                renewed.push(name);
+                return newEntry;
+            });
+
+            await updateFile(updatedLines.join("\n"), sha);
+
+            const preview = renewed.slice(0, 20).map(n => `• **${n}**`).join("\n")
+                + (renewed.length > 20 ? `\n_...et ${renewed.length - 20} autres_` : "");
+
+            await interaction.editReply({
+                embeds: [new EmbedBuilder()
+                    .setTitle("🔄 Renouvellement des expirés")
+                    .addFields(
+                        { name: "🕒 Expirés depuis",  value: since,              inline: true },
+                        { name: "⏱️ Nouvelle durée", value: time,               inline: true },
+                        { name: "👥 Renouvelés",      value: `${renewed.length}`, inline: true },
+                        { name: "📋 Liste",           value: preview,             inline: false }
+                    )
+                    .setColor(GREEN)
+                    .setFooter({ text: "SMVLL HUB • HS CORP" })
+                    .setTimestamp()
+                ]
+            });
+
+            sendLog("🔄 Renouvellement expirés", [
+                { name: "🕒 Depuis",         value: since,               inline: true },
+                { name: "⏱️ Durée",         value: time,                inline: true },
+                { name: "👥 Renouvelés",     value: `${renewed.length}`, inline: true },
+                { name: "👮 Par",            value: interaction.user.tag, inline: true }
+            ], GREEN);
         }
 
         else if (cmd === 'wl-transfer') {
