@@ -320,6 +320,16 @@ const commands = [
         .addStringOption(o => o.setName('since').setDescription('Expirés il y a au max (ex: 1d, 1w, 1mo, 3mo)').setRequired(true))
         .addStringOption(o => o.setName('time').setDescription('Durée à leur accorder (ex: 1w, 1mo, lifetime)').setRequired(true)),
 
+    new SlashCommandBuilder()
+        .setName('wl-recover')
+        .setDescription('Retrouver et redonner accès à tous les expirés (GitHub ou salon)')
+        .addStringOption(o => o.setName('time').setDescription('Durée à accorder (ex: 1w, 1mo, lifetime). Défaut: 1w').setRequired(false))
+        .addStringOption(o => o.setName('source').setDescription('github = whitelist | salon = embeds du channel').setRequired(false)
+            .addChoices(
+                { name: 'github — whitelist.txt', value: 'github' },
+                { name: 'salon — anciens embeds', value: 'salon' }
+            )),
+
 ].map(c => c.toJSON());
 
 // ─── Ready ────────────────────────────────────────────────────────────────────
@@ -363,7 +373,7 @@ client.on('interactionCreate', async interaction => {
                         { name: "📅 Années",      value: "`1y`",           inline: true },
                         { name: "♾️ À vie",       value: "`lifetime`",     inline: false },
                         { name: "━━━━━━━━━━━━━━━━", value: "**Commandes**", inline: false },
-                        { name: "📋 Whitelist",   value: "`/wl-add` `/wl-remove` `/wl-edit` `/wl-renew` `/wl-check` `/wl-list` `/wl-stats` `/wl-expire-soon` `/wl-clear` `/wl-purge-expired` `/wl-import` `/wl-search` `/wl-transfer` `/wl-batch-remove` `/wl-export` `/wl-renew-expired`", inline: false },
+                        { name: "📋 Whitelist",   value: "`/wl-add` `/wl-remove` `/wl-edit` `/wl-renew` `/wl-check` `/wl-list` `/wl-stats` `/wl-expire-soon` `/wl-clear` `/wl-purge-expired` `/wl-import` `/wl-search` `/wl-transfer` `/wl-batch-remove` `/wl-export` `/wl-renew-expired` `/wl-recover`", inline: false },
                         { name: "🚫 Blacklist",   value: "`/bl-add` `/bl-remove` `/bl-list` `/bl-check` `/bl-clear` `/bl-import`", inline: false },
                         { name: "📨 Messages",    value: "`/dmall` `/announce` `/dm` `/test-dm`", inline: false },
                         { name: "🔧 Utilitaires", value: "`/ping` `/botinfo` `/status`",          inline: false }
@@ -966,6 +976,117 @@ client.on('interactionCreate', async interaction => {
                         .setColor(RED)]
                 });
             }
+        }
+
+        else if (cmd === 'wl-recover') {
+            const time   = interaction.options.getString('time')   || '1w';
+            const source = interaction.options.getString('source') || 'github';
+
+            if (time !== 'lifetime' && !parseDuration(time)) {
+                return interaction.editReply({
+                    embeds: [new EmbedBuilder()
+                        .setDescription(`❌ Durée invalide : \`${time}\`. Exemples : \`1w\`, \`1mo\`, \`lifetime\``)
+                        .setColor(RED)]
+                });
+            }
+
+            let expiredNames = [];
+
+            if (source === 'github') {
+                const { content } = await getFile();
+                const lines = parseUsers(content);
+                expiredNames = lines.filter(l => isExpired(l)).map(l => getUserName(l));
+
+            } else {
+                const channel = client.channels.cache.get(LOG_CHANNEL_ID);
+                if (!channel) {
+                    return interaction.editReply({
+                        embeds: [new EmbedBuilder()
+                            .setDescription("❌ Salon de log introuvable.")
+                            .setColor(RED)]
+                    });
+                }
+
+                const collected = new Set();
+                let lastId;
+
+                for (let i = 0; i < 10; i++) {
+                    const opts = { limit: 100 };
+                    if (lastId) opts.before = lastId;
+                    const msgs = await channel.messages.fetch(opts);
+                    if (msgs.size === 0) break;
+
+                    for (const msg of msgs.values()) {
+                        for (const embed of msg.embeds) {
+                            const title = embed.title || "";
+                            const desc  = embed.description || "";
+                            if (title.includes("Expir") || title.includes("expir")) {
+                                const matches = desc.matchAll(/\*\*([^*]+)\*\*/g);
+                                for (const m of matches) collected.add(m[1].trim());
+                            }
+                            for (const field of (embed.fields || [])) {
+                                if (field.name.includes("User") || field.name.includes("user")) {
+                                    collected.add(field.value.trim());
+                                }
+                            }
+                        }
+                    }
+                    lastId = msgs.last()?.id;
+                }
+
+                expiredNames = [...collected];
+            }
+
+            if (expiredNames.length === 0) {
+                return interaction.editReply({
+                    embeds: [new EmbedBuilder()
+                        .setDescription(`✅ Aucun expiré trouvé (source : **${source}**).`)
+                        .setColor(YELLOW)]
+                });
+            }
+
+            let { content, sha } = await getFile();
+            const lines  = parseUsers(content);
+            const renewed  = [];
+            const notFound = [];
+
+            for (const name of expiredNames) {
+                const idx = lines.findIndex(l => getUserName(l).toLowerCase() === name.toLowerCase());
+                if (idx !== -1) {
+                    lines[idx] = buildEntry(getUserName(lines[idx]), time);
+                    renewed.push(getUserName(lines[idx]));
+                } else {
+                    notFound.push(name);
+                }
+            }
+
+            if (renewed.length > 0) await updateFile(lines.join("\n"), sha);
+
+            const preview = renewed.slice(0, 20).map(n => `• **${n}**`).join("\n")
+                + (renewed.length > 20 ? `\n_...et ${renewed.length - 20} autres_` : "");
+
+            await interaction.editReply({
+                embeds: [new EmbedBuilder()
+                    .setTitle("♻️ Recover — Accès restaurés")
+                    .addFields(
+                        { name: "🔍 Source",       value: source,              inline: true },
+                        { name: "⏱️ Durée",        value: time,                inline: true },
+                        { name: "✅ Renouvelés",   value: `${renewed.length}`, inline: true },
+                        { name: "❌ Introuvables", value: notFound.length > 0 ? notFound.join(", ") : "aucun", inline: false },
+                        { name: "📋 Liste",        value: preview || "aucun",  inline: false }
+                    )
+                    .setColor(GREEN)
+                    .setFooter({ text: "SMVLL HUB • HS CORP" })
+                    .setTimestamp()
+                ]
+            });
+
+            sendLog("♻️ Recover WL", [
+                { name: "🔍 Source",     value: source,               inline: true },
+                { name: "⏱️ Durée",     value: time,                 inline: true },
+                { name: "✅ Renouvelés", value: `${renewed.length}`, inline: true },
+                { name: "👮 Par",        value: interaction.user.tag, inline: true }
+            ], GREEN);
         }
 
         else if (cmd === 'wl-renew-expired') {
