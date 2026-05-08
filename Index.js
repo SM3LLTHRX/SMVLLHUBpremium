@@ -322,9 +322,10 @@ const commands = [
 
     new SlashCommandBuilder()
         .setName('wl-recover')
-        .setDescription('Retrouver et redonner accès à tous les expirés (GitHub ou salon)')
-        .addStringOption(o => o.setName('time').setDescription('Durée à accorder (ex: 1w, 1mo, lifetime). Défaut: 1w').setRequired(false))
-        .addStringOption(o => o.setName('source').setDescription('github = whitelist | salon = embeds du channel').setRequired(false)
+        .setDescription('Redonner accès aux expirés filtrés par durée (ex: expirés depuis max 1w)')
+        .addStringOption(o => o.setName('since').setDescription('Expirés il y a au max (ex: 1d, 1w, 2w, 1mo). Vide = tous').setRequired(false))
+        .addStringOption(o => o.setName('time').setDescription('Durée à leur accorder (ex: 1w, 1mo, lifetime). Défaut: 1w').setRequired(false))
+        .addStringOption(o => o.setName('source').setDescription('Source de recherche').setRequired(false)
             .addChoices(
                 { name: 'github — whitelist.txt', value: 'github' },
                 { name: 'salon — anciens embeds', value: 'salon' }
@@ -979,8 +980,18 @@ client.on('interactionCreate', async interaction => {
         }
 
         else if (cmd === 'wl-recover') {
+            const since  = interaction.options.getString('since')  || null;
             const time   = interaction.options.getString('time')   || '1w';
             const source = interaction.options.getString('source') || 'github';
+
+            const sinceMs = since ? parseDuration(since) : null;
+            if (since && !sinceMs) {
+                return interaction.editReply({
+                    embeds: [new EmbedBuilder()
+                        .setDescription(`❌ Format \`since\` invalide : \`${since}\`. Exemples : \`1d\`, \`1w\`, \`1mo\``)
+                        .setColor(RED)]
+                });
+            }
 
             if (time !== 'lifetime' && !parseDuration(time)) {
                 return interaction.editReply({
@@ -995,7 +1006,13 @@ client.on('interactionCreate', async interaction => {
             if (source === 'github') {
                 const { content } = await getFile();
                 const lines = parseUsers(content);
-                expiredNames = lines.filter(l => isExpired(l)).map(l => getUserName(l));
+                const now   = Math.floor(Date.now() / 1000);
+                expiredNames = lines.filter(l => {
+                    const exp = getExpiry(l);
+                    if (!exp || exp >= now) return false;
+                    if (sinceMs) return (now - exp) * 1000 <= sinceMs;
+                    return true;
+                }).map(l => getUserName(l));
 
             } else {
                 const channel = client.channels.cache.get(LOG_CHANNEL_ID);
@@ -1069,11 +1086,12 @@ client.on('interactionCreate', async interaction => {
                 embeds: [new EmbedBuilder()
                     .setTitle("♻️ Recover — Accès restaurés")
                     .addFields(
-                        { name: "🔍 Source",       value: source,              inline: true },
-                        { name: "⏱️ Durée",        value: time,                inline: true },
-                        { name: "✅ Renouvelés",   value: `${renewed.length}`, inline: true },
-                        { name: "❌ Introuvables", value: notFound.length > 0 ? notFound.join(", ") : "aucun", inline: false },
-                        { name: "📋 Liste",        value: preview || "aucun",  inline: false }
+                        { name: "🔍 Source",        value: source,                        inline: true },
+                        { name: "🕒 Filtre",        value: since ? `expirés < ${since}` : "tous les expirés", inline: true },
+                        { name: "⏱️ Durée",         value: time,                          inline: true },
+                        { name: "✅ Renouvelés",    value: `${renewed.length}`,            inline: true },
+                        { name: "❌ Introuvables",  value: notFound.length > 0 ? notFound.join(", ") : "aucun", inline: false },
+                        { name: "📋 Liste",         value: preview || "aucun",             inline: false }
                     )
                     .setColor(GREEN)
                     .setFooter({ text: "SMVLL HUB • HS CORP" })
@@ -1082,9 +1100,10 @@ client.on('interactionCreate', async interaction => {
             });
 
             sendLog("♻️ Recover WL", [
-                { name: "🔍 Source",     value: source,               inline: true },
-                { name: "⏱️ Durée",     value: time,                 inline: true },
-                { name: "✅ Renouvelés", value: `${renewed.length}`, inline: true },
+                { name: "🔍 Source",     value: source,                                inline: true },
+                { name: "🕒 Filtre",     value: since ? `expirés < ${since}` : "tous", inline: true },
+                { name: "⏱️ Durée",     value: time,                                  inline: true },
+                { name: "✅ Renouvelés", value: `${renewed.length}`,                  inline: true },
                 { name: "👮 Par",        value: interaction.user.tag, inline: true }
             ], GREEN);
         }
