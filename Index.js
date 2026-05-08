@@ -1,5 +1,5 @@
 const {
-    Client, GatewayIntentBits, EmbedBuilder,
+    Client, GatewayIntentBits, EmbedBuilder, AttachmentBuilder,
     REST, Routes, SlashCommandBuilder
 } = require('discord.js');
 const axios = require('axios');
@@ -279,6 +279,34 @@ const commands = [
         .setDescription('Envoyer le script en DM à un membre spécifique')
         .addUserOption(o => o.setName('user').setDescription('Membre Discord').setRequired(true)),
 
+    new SlashCommandBuilder()
+        .setName('wl-transfer')
+        .setDescription('Transférer la whitelist d\'un user à un autre (changement de pseudo Roblox)')
+        .addStringOption(o => o.setName('old').setDescription('Ancien nom Roblox').setRequired(true))
+        .addStringOption(o => o.setName('new').setDescription('Nouveau nom Roblox').setRequired(true)),
+
+    new SlashCommandBuilder()
+        .setName('wl-batch-remove')
+        .setDescription('Retirer plusieurs users de la whitelist d\'un coup')
+        .addStringOption(o => o.setName('users').setDescription('Noms séparés par des virgules').setRequired(true)),
+
+    new SlashCommandBuilder()
+        .setName('wl-export')
+        .setDescription('Exporter la whitelist complète en fichier .txt'),
+
+    new SlashCommandBuilder()
+        .setName('bl-clear')
+        .setDescription('⚠️ Vider toute la blacklist'),
+
+    new SlashCommandBuilder()
+        .setName('bl-import')
+        .setDescription('Importer plusieurs users dans la blacklist d\'un coup')
+        .addStringOption(o => o.setName('users').setDescription('Noms séparés par des virgules').setRequired(true)),
+
+    new SlashCommandBuilder()
+        .setName('status')
+        .setDescription('Dashboard complet — WL, BL et stats du bot'),
+
 ].map(c => c.toJSON());
 
 // ─── Ready ────────────────────────────────────────────────────────────────────
@@ -322,10 +350,10 @@ client.on('interactionCreate', async interaction => {
                         { name: "📅 Années",      value: "`1y`",           inline: true },
                         { name: "♾️ À vie",       value: "`lifetime`",     inline: false },
                         { name: "━━━━━━━━━━━━━━━━", value: "**Commandes**", inline: false },
-                        { name: "📋 Whitelist",   value: "`/wl-add` `/wl-remove` `/wl-edit` `/wl-renew` `/wl-check` `/wl-list` `/wl-stats` `/wl-expire-soon` `/wl-clear` `/wl-purge-expired` `/wl-import` `/wl-search`", inline: false },
-                        { name: "🚫 Blacklist",   value: "`/bl-add` `/bl-remove` `/bl-list` `/bl-check`", inline: false },
-                        { name: "📨 Messages",    value: "`/dmall` `/announce`", inline: false },
-                        { name: "🔧 Utilitaires", value: "`/ping` `/botinfo`",   inline: false }
+                        { name: "📋 Whitelist",   value: "`/wl-add` `/wl-remove` `/wl-edit` `/wl-renew` `/wl-check` `/wl-list` `/wl-stats` `/wl-expire-soon` `/wl-clear` `/wl-purge-expired` `/wl-import` `/wl-search` `/wl-transfer` `/wl-batch-remove` `/wl-export`", inline: false },
+                        { name: "🚫 Blacklist",   value: "`/bl-add` `/bl-remove` `/bl-list` `/bl-check` `/bl-clear` `/bl-import`", inline: false },
+                        { name: "📨 Messages",    value: "`/dmall` `/announce` `/dm` `/test-dm`", inline: false },
+                        { name: "🔧 Utilitaires", value: "`/ping` `/botinfo` `/status`",          inline: false }
                     )
                     .setColor(BLUE)
                     .setFooter({ text: "SMVLL HUB • HS CORP" })
@@ -925,6 +953,221 @@ client.on('interactionCreate', async interaction => {
                         .setColor(RED)]
                 });
             }
+        }
+
+        else if (cmd === 'wl-transfer') {
+            const oldName = interaction.options.getString('old');
+            const newName = interaction.options.getString('new');
+            let { content, sha } = await getFile();
+            const lines = parseUsers(content);
+            const idx = lines.findIndex(l => getUserName(l).toLowerCase() === oldName.toLowerCase());
+
+            if (idx === -1) {
+                return interaction.editReply({
+                    embeds: [new EmbedBuilder().setDescription(`❌ **${oldName}** introuvable dans la whitelist.`).setColor(RED)]
+                });
+            }
+
+            if (lines.some(l => getUserName(l).toLowerCase() === newName.toLowerCase())) {
+                return interaction.editReply({
+                    embeds: [new EmbedBuilder().setDescription(`⚠️ **${newName}** existe déjà dans la whitelist.`).setColor(YELLOW)]
+                });
+            }
+
+            const exp = getExpiry(lines[idx]);
+            lines[idx] = exp ? `${newName},${exp}` : `${newName},`;
+            await updateFile(lines.join("\n"), sha);
+
+            await interaction.editReply({
+                embeds: [new EmbedBuilder()
+                    .setTitle("🔀 Transfert effectué")
+                    .addFields(
+                        { name: "👤 Ancien",  value: oldName, inline: true },
+                        { name: "👤 Nouveau", value: newName, inline: true },
+                        { name: "⏱️ Expiration conservée", value: formatExpiry(lines[idx]), inline: true }
+                    )
+                    .setColor(BLUE)]
+            });
+
+            sendLog("🔀 Transfert WL", [
+                { name: "👤 Ancien",  value: oldName,               inline: true },
+                { name: "👤 Nouveau", value: newName,               inline: true },
+                { name: "👮 Par",     value: interaction.user.tag,  inline: true }
+            ], BLUE);
+        }
+
+        else if (cmd === 'wl-batch-remove') {
+            const input = interaction.options.getString('users');
+            const names = input.split(",").map(n => n.trim()).filter(n => n.length > 0);
+
+            let { content, sha } = await getFile();
+            const lines = parseUsers(content);
+            const removed  = [];
+            const notFound = [];
+
+            for (const name of names) {
+                const idx = lines.findIndex(l => getUserName(l).toLowerCase() === name.toLowerCase());
+                if (idx !== -1) {
+                    lines.splice(idx, 1);
+                    removed.push(name);
+                } else {
+                    notFound.push(name);
+                }
+            }
+
+            if (removed.length > 0) await updateFile(lines.join("\n"), sha);
+
+            await interaction.editReply({
+                embeds: [new EmbedBuilder()
+                    .setTitle("🗑️ Suppression groupée")
+                    .addFields(
+                        { name: "✅ Supprimés",    value: removed.length  > 0 ? removed.join(", ")  : "aucun", inline: false },
+                        { name: "❌ Introuvables", value: notFound.length > 0 ? notFound.join(", ") : "aucun", inline: false }
+                    )
+                    .setColor(removed.length > 0 ? ORANGE : YELLOW)]
+            });
+
+            if (removed.length > 0) {
+                sendLog("🗑️ Suppression groupée WL", [
+                    { name: "✅ Supprimés", value: `${removed.length}`,   inline: true },
+                    { name: "👮 Par",      value: interaction.user.tag,   inline: true }
+                ], ORANGE);
+            }
+        }
+
+        else if (cmd === 'wl-export') {
+            const { content } = await getFile();
+            const lines = parseUsers(content);
+
+            const exportContent = lines.length > 0
+                ? lines.map(line => {
+                    const name   = getUserName(line);
+                    const exp    = getExpiry(line);
+                    const expStr = exp ? new Date(exp * 1000).toISOString().split('T')[0] : 'lifetime';
+                    return `${name} | ${expStr}`;
+                }).join("\n")
+                : "(whitelist vide)";
+
+            const attachment = new AttachmentBuilder(
+                Buffer.from(exportContent, 'utf-8'),
+                { name: 'whitelist_export.txt' }
+            );
+
+            await interaction.editReply({
+                embeds: [new EmbedBuilder()
+                    .setTitle("📤 Export Whitelist")
+                    .addFields({ name: "👥 Total", value: `${lines.length} users`, inline: true })
+                    .setColor(BLUE)
+                    .setFooter({ text: "SMVLL HUB • HS CORP" })
+                    .setTimestamp()
+                ],
+                files: [attachment]
+            });
+        }
+
+        else if (cmd === 'bl-clear') {
+            const blFile = await getFile("blacklist.txt").catch(() => null);
+            if (!blFile) {
+                return interaction.editReply({
+                    embeds: [new EmbedBuilder().setDescription("🚫 Blacklist déjà vide.").setColor(YELLOW)]
+                });
+            }
+            await updateFile("", blFile.sha, "blacklist.txt");
+            await interaction.editReply({
+                embeds: [new EmbedBuilder().setDescription("🗑️ Blacklist vidée.").setColor(RED)]
+            });
+            sendLog("🗑️ Blacklist vidée", [
+                { name: "👮 Par", value: interaction.user.tag }
+            ], RED);
+        }
+
+        else if (cmd === 'bl-import') {
+            const input = interaction.options.getString('users');
+            const names = input.split(",").map(n => n.trim()).filter(n => n.length > 0);
+
+            const blFile = await getFile("blacklist.txt").catch(() => null);
+            let content  = blFile ? blFile.content : "";
+            let sha      = blFile ? blFile.sha : null;
+
+            const existing = parseUsers(content).map(l => l.toLowerCase());
+            const added   = [];
+            const skipped = [];
+
+            for (const name of names) {
+                if (existing.includes(name.toLowerCase())) {
+                    skipped.push(name);
+                } else {
+                    content = (content.trimEnd() + "\n" + name).trim();
+                    added.push(name);
+                }
+            }
+
+            if (added.length > 0) {
+                if (!sha) await createFile(content, "blacklist.txt");
+                else await updateFile(content, sha, "blacklist.txt");
+            }
+
+            await interaction.editReply({
+                embeds: [new EmbedBuilder()
+                    .setTitle("📥 Import Blacklist")
+                    .addFields(
+                        { name: "🚫 Blacklistés", value: added.length   > 0 ? added.join(", ")   : "aucun", inline: false },
+                        { name: "⚠️ Ignorés",     value: skipped.length > 0 ? skipped.join(", ") : "aucun", inline: false }
+                    )
+                    .setColor(RED)]
+            });
+
+            if (added.length > 0) {
+                sendLog("📥 Import BL", [
+                    { name: "🚫 Ajoutés", value: `${added.length}`,     inline: true },
+                    { name: "👮 Par",     value: interaction.user.tag,  inline: true }
+                ], RED);
+            }
+        }
+
+        else if (cmd === 'status') {
+            const { content: wlContent } = await getFile();
+            const { content: blContent } = await getFile("blacklist.txt").catch(() => ({ content: "" }));
+
+            const wlAll      = parseUsers(wlContent);
+            const wlActifs   = wlAll.filter(l => !isExpired(l)).length;
+            const wlExpires  = wlAll.filter(l => isExpired(l)).length;
+            const wlLifetime = wlAll.filter(l => !getExpiry(l)).length;
+            const blTotal    = parseUsers(blContent).length;
+
+            const now = Math.floor(Date.now() / 1000);
+            const expiringSoon = wlAll.filter(l => {
+                const exp = getExpiry(l);
+                if (!exp) return false;
+                const diff = exp - now;
+                return diff > 0 && diff <= 7 * 86400;
+            }).length;
+
+            const uptime = process.uptime();
+            const d   = Math.floor(uptime / 86400);
+            const h   = Math.floor((uptime % 86400) / 3600);
+            const m   = Math.floor((uptime % 3600) / 60);
+            const mem = (process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2);
+
+            await interaction.editReply({
+                embeds: [new EmbedBuilder()
+                    .setTitle("📊 SMVLL HUB — Status Dashboard")
+                    .addFields(
+                        { name: "✅ WL Actifs",     value: `${wlActifs}`,      inline: true },
+                        { name: "⛔ WL Expirés",    value: `${wlExpires}`,     inline: true },
+                        { name: "♾️ WL Lifetime",   value: `${wlLifetime}`,    inline: true },
+                        { name: "⚠️ Expire < 7j",  value: `${expiringSoon}`,  inline: true },
+                        { name: "🚫 Blacklist",     value: `${blTotal}`,       inline: true },
+                        { name: "📦 WL Total",      value: `${wlAll.length}`,  inline: true },
+                        { name: "⏱️ Uptime",        value: `${d}j ${h}h ${m}m`, inline: true },
+                        { name: "🧠 Mémoire",       value: `${mem} MB`,          inline: true },
+                        { name: "📡 Ping",          value: `${client.ws.ping}ms`, inline: true }
+                    )
+                    .setColor(BLUE)
+                    .setFooter({ text: "SMVLL HUB • HS CORP" })
+                    .setTimestamp()
+                ]
+            });
         }
 
         else if (cmd === 'announce') {
