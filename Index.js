@@ -71,6 +71,59 @@ async function createFile(content, filename) {
     );
 }
 
+// ─── Free4All state ───────────────────────────────────────────────────────────
+
+let free4allSince = null; // ms timestamp when started, null if inactive
+
+async function stopFree4All(actor) {
+    try {
+        let { content, sha } = await getFile();
+        const val     = getConfigValue(content, 'free4all');
+        const startTs = val ? parseInt(val.split(':')[0]) : Math.floor(free4allSince / 1000);
+        const now     = Math.floor(Date.now() / 1000);
+        const duration = now - startTs;
+
+        content = content.split("\n").map(l => {
+            if (!l.includes(',') || l.startsWith('--')) return l;
+            const exp = getExpiry(l);
+            if (!exp || isNaN(exp)) return l;
+            return `${getUserName(l)},${exp + duration}`;
+        }).join("\n");
+
+        content = setConfigValue(content, 'whitelist', 'true');
+        content = setConfigValue(content, 'free4all', null);
+        await updateFile(content, sha);
+        free4allSince = null;
+
+        const dH = Math.floor(duration / 3600);
+        const dM = Math.floor((duration % 3600) / 60);
+        sendLog("✅ Free4All désactivé", [
+            { name: "⏱️ Durée", value: `${dH}h ${dM}m`, inline: true },
+            { name: "👮 Par",   value: actor,            inline: true }
+        ], GREEN);
+    } catch (e) {
+        console.error("stopFree4All error:", e.message);
+    }
+}
+
+function getConfigValue(content, key) {
+    const line = content.split("\n").find(l => l.startsWith(key + "="));
+    return line ? line.slice(key.length + 1).trim() : null;
+}
+
+function setConfigValue(content, key, value) {
+    const lines = content.split("\n");
+    const idx   = lines.findIndex(l => l.startsWith(key + "="));
+    if (idx !== -1) {
+        if (value === null) lines.splice(idx, 1);
+        else lines[idx] = `${key}=${value}`;
+    } else if (value !== null) {
+        const cfgIdx = lines.findIndex(l => l.trim() === "--config");
+        lines.splice(cfgIdx !== -1 ? cfgIdx + 1 : 0, 0, `${key}=${value}`);
+    }
+    return lines.join("\n");
+}
+
 // ─── Whitelist helpers ────────────────────────────────────────────────────────
 
 function parseUsers(content) {
@@ -138,6 +191,7 @@ function isOwner(interaction) {
 // ─── Auto expiry check ────────────────────────────────────────────────────────
 
 async function checkExpiringSoon() {
+    if (free4allSince !== null) return;
     const channel = client.channels.cache.get(LOG_CHANNEL_ID);
     if (!channel) return;
     try {
@@ -315,6 +369,11 @@ const commands = [
         .setDescription('Dashboard complet — WL, BL et stats du bot'),
 
     new SlashCommandBuilder()
+        .setName('free4all')
+        .setDescription('Toggle Free4All — désactive la WL et gèle les expirations')
+        .addStringOption(o => o.setName('time').setDescription('Durée (ex: 1h, 1d, 1w). Vide = manuel').setRequired(false)),
+
+    new SlashCommandBuilder()
         .setName('wl-recover')
         .setDescription('Ajouter du temps à tous les actifs + expirés depuis max X (depuis GitHub)')
         .addStringOption(o => o.setName('time').setDescription('Temps à ajouter (ex: 1w, 1mo, lifetime)').setRequired(true))
@@ -329,6 +388,20 @@ client.once('ready', async () => {
     const rest = new REST({ version: '10' }).setToken(TOKEN);
     await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: commands });
     console.log("✅ Commandes enregistrées");
+    try {
+        const { content } = await getFile();
+        const val = getConfigValue(content, 'free4all');
+        if (val) {
+            const [startTs, endTs] = val.split(':').map(Number);
+            free4allSince = startTs * 1000;
+            console.log("⚠️ Free4All actif depuis le dernier restart");
+            if (endTs && endTs > 0) {
+                const remaining = (endTs - Math.floor(Date.now() / 1000)) * 1000;
+                if (remaining > 0) setTimeout(() => stopFree4All("auto"), remaining);
+                else stopFree4All("auto");
+            }
+        }
+    } catch {}
     setInterval(checkExpiringSoon, 60 * 60 * 1000);
     checkExpiringSoon();
 });
@@ -346,6 +419,15 @@ client.on('interactionCreate', async interaction => {
     }
 
     await interaction.deferReply({ ephemeral: true });
+
+    if (free4allSince !== null && cmd.startsWith('wl-') && !['wl-check','wl-list','wl-search','wl-stats'].includes(cmd)) {
+        return interaction.editReply({
+            embeds: [new EmbedBuilder()
+                .setTitle("🆓 Free4All actif")
+                .setDescription("Les modifications de whitelist sont désactivées pendant le Free4All.")
+                .setColor(ORANGE)]
+        });
+    }
 
     try {
         const cmd = interaction.commandName;
@@ -366,7 +448,7 @@ client.on('interactionCreate', async interaction => {
                         { name: "📋 Whitelist",   value: "`/wl-add` `/wl-remove` `/wl-edit` `/wl-renew` `/wl-check` `/wl-list` `/wl-stats` `/wl-expire-soon` `/wl-clear` `/wl-purge-expired` `/wl-import` `/wl-search` `/wl-transfer` `/wl-batch-remove` `/wl-export` `/wl-renew-expired`", inline: false },
                         { name: "🚫 Blacklist",   value: "`/bl-add` `/bl-remove` `/bl-list` `/bl-check` `/bl-clear` `/bl-import`", inline: false },
                         { name: "📨 Messages",    value: "`/dmall` `/announce` `/dm` `/test-dm`", inline: false },
-                        { name: "🔧 Utilitaires", value: "`/ping` `/botinfo` `/status`",          inline: false }
+                        { name: "🔧 Utilitaires", value: "`/ping` `/botinfo` `/status` `/free4all`", inline: false }
                     )
                     .setColor(BLUE)
                     .setFooter({ text: "SMVLL HUB • HS CORP" })
@@ -1329,6 +1411,7 @@ client.on('interactionCreate', async interaction => {
                 embeds: [new EmbedBuilder()
                     .setTitle("📊 SMVLL HUB — Status Dashboard")
                     .addFields(
+                        { name: "🆓 Free4All",      value: free4allSince ? "🟠 ACTIF" : "🟢 Inactif", inline: true },
                         { name: "✅ WL Actifs",     value: `${wlActifs}`,      inline: true },
                         { name: "⛔ WL Expirés",    value: `${wlExpires}`,     inline: true },
                         { name: "♾️ WL Lifetime",   value: `${wlLifetime}`,    inline: true },
@@ -1344,6 +1427,74 @@ client.on('interactionCreate', async interaction => {
                     .setTimestamp()
                 ]
             });
+        }
+
+        else if (cmd === 'free4all') {
+            let { content, sha } = await getFile();
+            const isActive = getConfigValue(content, 'free4all') !== null;
+
+            if (!isActive) {
+                const timeArg  = interaction.options.getString('time') || null;
+                const durationMs = timeArg ? parseDuration(timeArg) : null;
+                if (timeArg && !durationMs) {
+                    return interaction.editReply({
+                        embeds: [new EmbedBuilder()
+                            .setDescription(`❌ Durée invalide : \`${timeArg}\`. Exemples : \`1h\`, \`1d\`, \`1w\``)
+                            .setColor(RED)]
+                    });
+                }
+
+                const startTs = Math.floor(Date.now() / 1000);
+                const endTs   = durationMs ? startTs + Math.floor(durationMs / 1000) : null;
+                content = setConfigValue(content, 'whitelist', 'false');
+                content = setConfigValue(content, 'free4all', endTs ? `${startTs}:${endTs}` : `${startTs}:0`);
+                await updateFile(content, sha);
+                free4allSince = startTs * 1000;
+
+                if (durationMs) {
+                    setTimeout(() => stopFree4All("auto"), durationMs);
+                }
+
+                await interaction.editReply({
+                    embeds: [new EmbedBuilder()
+                        .setTitle("🆓 Free4All ACTIVÉ")
+                        .addFields(
+                            { name: "⏱️ Durée",  value: timeArg ? timeArg : "Manuel",              inline: true },
+                            { name: "🔚 Fin",    value: endTs ? `<t:${endTs}:R>` : "Manuel seulement", inline: true }
+                        )
+                        .setDescription("La whitelist est **désactivée**. Les expirations sont **gelées**.")
+                        .setColor(ORANGE)
+                        .setFooter({ text: "SMVLL HUB • HS CORP" })
+                        .setTimestamp()
+                    ]
+                });
+                sendLog("🆓 Free4All activé", [
+                    { name: "⏱️ Durée", value: timeArg ?? "Manuel",   inline: true },
+                    { name: "👮 Par",   value: interaction.user.tag,  inline: true }
+                ], ORANGE);
+
+            } else {
+                await stopFree4All(interaction.user.tag);
+                const { content: newContent } = await getFile();
+                const now = Math.floor(Date.now() / 1000);
+                const val = getConfigValue(newContent, 'free4all');
+                const startTs = val ? parseInt(val.split(':')[0]) : now;
+                const duration = now - startTs;
+                const dH = Math.floor(duration / 3600);
+                const dM = Math.floor((duration % 3600) / 60);
+                await interaction.editReply({
+                    embeds: [new EmbedBuilder()
+                        .setTitle("✅ Free4All DÉSACTIVÉ")
+                        .addFields(
+                            { name: "⏱️ Durée",       value: `${dH}h ${dM}m`,             inline: true },
+                            { name: "📅 Expirations", value: `+${dH}h ${dM}m pour tous`,   inline: true }
+                        )
+                        .setColor(GREEN)
+                        .setFooter({ text: "SMVLL HUB • HS CORP" })
+                        .setTimestamp()
+                    ]
+                });
+            }
         }
 
         else if (cmd === 'announce') {
