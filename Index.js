@@ -315,10 +315,10 @@ const commands = [
         .setDescription('Dashboard complet — WL, BL et stats du bot'),
 
     new SlashCommandBuilder()
-        .setName('wl-renew-expired')
-        .setDescription('Redonner du temps à tous les expirés depuis X (ex: 1w = expirés il y a max 1 semaine)')
-        .addStringOption(o => o.setName('since').setDescription('Expirés il y a au max (ex: 1d, 1w, 1mo, 3mo)').setRequired(true))
-        .addStringOption(o => o.setName('time').setDescription('Durée à leur accorder (ex: 1w, 1mo, lifetime)').setRequired(true)),
+        .setName('wl-recover')
+        .setDescription('Ajouter du temps à tous les actifs + expirés depuis max X (depuis GitHub)')
+        .addStringOption(o => o.setName('time').setDescription('Temps à ajouter (ex: 1w, 1mo, lifetime)').setRequired(true))
+        .addStringOption(o => o.setName('since').setDescription('Inclure aussi les expirés depuis max X (ex: 1w, 1mo). Vide = actifs seulement').setRequired(false)),
 
 ].map(c => c.toJSON());
 
@@ -1043,6 +1043,91 @@ client.on('interactionCreate', async interaction => {
                 { name: "⏱️ Durée",         value: time,                inline: true },
                 { name: "👥 Renouvelés",     value: `${renewed.length}`, inline: true },
                 { name: "👮 Par",            value: interaction.user.tag, inline: true }
+            ], GREEN);
+        }
+
+        else if (cmd === 'wl-recover') {
+            const time  = interaction.options.getString('time');
+            const since = interaction.options.getString('since') || null;
+
+            if (time !== 'lifetime' && !parseDuration(time)) {
+                return interaction.editReply({
+                    embeds: [new EmbedBuilder()
+                        .setDescription(`❌ Durée invalide : \`${time}\`. Exemples : \`1w\`, \`1mo\`, \`lifetime\``)
+                        .setColor(RED)]
+                });
+            }
+
+            const sinceMs = since ? parseDuration(since) : null;
+            if (since && !sinceMs) {
+                return interaction.editReply({
+                    embeds: [new EmbedBuilder()
+                        .setDescription(`❌ Format \`since\` invalide : \`${since}\`. Exemples : \`1d\`, \`1w\`, \`1mo\``)
+                        .setColor(RED)]
+                });
+            }
+
+            let { content, sha } = await getFile();
+            const now   = Math.floor(Date.now() / 1000);
+            const lines = parseUsers(content);
+
+            const targets = lines.filter(l => {
+                const exp = getExpiry(l);
+                if (!exp) return true;
+                if (exp >= now) return true;
+                if (sinceMs) return (now - exp) * 1000 <= sinceMs;
+                return false;
+            });
+
+            if (targets.length === 0) {
+                return interaction.editReply({
+                    embeds: [new EmbedBuilder()
+                        .setDescription(`✅ Aucun user trouvé avec ce filtre.`)
+                        .setColor(YELLOW)]
+                });
+            }
+
+            const renewed = [];
+            const updatedLines = lines.map(l => {
+                if (!targets.includes(l)) return l;
+                const name = getUserName(l);
+                if (time === 'lifetime') {
+                    renewed.push(name);
+                    return `${name},`;
+                }
+                const addMs  = parseDuration(time);
+                const expiry = getExpiry(l);
+                const base   = expiry && expiry > now ? expiry * 1000 : Date.now();
+                const newExp = Math.floor((base + addMs) / 1000);
+                renewed.push(name);
+                return `${name},${newExp}`;
+            });
+
+            await updateFile(updatedLines.join("\n"), sha);
+
+            const preview = renewed.slice(0, 20).map(n => `• **${n}**`).join("\n")
+                + (renewed.length > 20 ? `\n_...et ${renewed.length - 20} autres_` : "");
+
+            await interaction.editReply({
+                embeds: [new EmbedBuilder()
+                    .setTitle("♻️ Recover — Temps ajouté")
+                    .addFields(
+                        { name: "⏱️ Ajouté",   value: time,                                                    inline: true },
+                        { name: "🕒 Filtre",    value: since ? `actifs + expirés < ${since}` : "actifs seuls", inline: true },
+                        { name: "👥 Users",     value: `${renewed.length}`,                                    inline: true },
+                        { name: "📋 Liste",     value: preview,                                                 inline: false }
+                    )
+                    .setColor(GREEN)
+                    .setFooter({ text: "SMVLL HUB • HS CORP" })
+                    .setTimestamp()
+                ]
+            });
+
+            sendLog("♻️ Recover WL", [
+                { name: "⏱️ Ajouté",  value: time,                 inline: true },
+                { name: "🕒 Filtre",  value: since ?? "actifs",    inline: true },
+                { name: "👥 Users",   value: `${renewed.length}`,  inline: true },
+                { name: "👮 Par",     value: interaction.user.tag, inline: true }
             ], GREEN);
         }
 
