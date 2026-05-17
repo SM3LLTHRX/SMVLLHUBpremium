@@ -3,7 +3,8 @@ const {
     REST, Routes, SlashCommandBuilder
 } = require('discord.js');
 const axios = require('axios');
-const ms = require('ms');
+const ms    = require('ms');
+const http  = require('http');
 
 function parseDuration(str) {
     if (!str) return undefined;
@@ -1535,3 +1536,10 @@ client.on('interactionCreate', async interaction => {
 });
 
 client.login(TOKEN);
+
+// ─── Keep-alive HTTP server (Render + UptimeRobot) ────────────────────────────
+const PORT = process.env.PORT || 3000;
+http.createServer((req, res) => {
+    res.writeHead(200);
+    res.end("SMVLL HUB — online");
+}).listen(PORT, () => console.log(`✅ Keep-alive server sur le port ${PORT}`));
