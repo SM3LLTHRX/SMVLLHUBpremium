@@ -1,5 +1,6 @@
 --config
-whitelist=true
+free4all=1779017555:0
+whitelist=false
 dodo1424x,
 Timotheeprime8,
 Tiziano21349856,
