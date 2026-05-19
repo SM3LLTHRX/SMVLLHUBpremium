@@ -13,6 +13,12 @@ function parseDuration(str) {
     return ms(str);
 }
 
+function generateKey() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const seg = () => Array.from({length: 5}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    return `SMVLL-${seg()}-${seg()}-${seg()}`;
+}
+
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -30,8 +36,6 @@ const CLIENT_ID       = process.env.CLIENT_ID;
 const GUILD_ID        = process.env.GUILD_ID;
 const OWNER_ID        = process.env.OWNER_ID;
 const PREMIUM_ROLE_ID = "1486435751297159378";
-const PANDA_API_KEY   = process.env.PANDA_API_KEY;
-const PANDA_FILE_ID   = process.env.PANDA_FILE_ID || "fa8102b2cff041cd";
 const BUYER_ROLE_ID   = process.env.BUYER_ROLE_ID;
 
 const GREEN  = 0x00FF64;
@@ -77,17 +81,21 @@ async function createFile(content, filename) {
     );
 }
 
-// ─── Buyers helpers ─────────────────────────────────────────────
+// ─── Keys helpers ─────────────────────────────────────────────────────────────
 
-async function getBuyersData() {
-    const f = await getFile("buyers.json").catch(() => null);
+async function getKeysData() {
+    const f = await getFile("keys.json").catch(() => null);
     return { data: f ? JSON.parse(f.content) : {}, sha: f ? f.sha : null };
 }
 
-async function saveBuyersData(data, sha) {
+async function saveKeysData(data, sha) {
     const content = JSON.stringify(data, null, 2);
-    if (sha) await updateFile(content, sha, "buyers.json");
-    else      await createFile(content, "buyers.json");
+    if (sha) await updateFile(content, sha, "keys.json");
+    else      await createFile(content, "keys.json");
+}
+
+function findKeyByDiscordId(keys, discordId) {
+    return Object.entries(keys).find(([, v]) => v.discordId === discordId) || null;
 }
 
 // ─── Free4All state ─────────────────────────────────────────────
@@ -404,18 +412,26 @@ const commands = [
 
     new SlashCommandBuilder()
         .setName('sell')
-        .setDescription('Enregistrer un buyer et lui donner accès au script')
+        .setDescription('Créer une clé d\'accès pour un buyer')
         .addUserOption(o => o.setName('user').setDescription('Membre Discord').setRequired(true))
         .addStringOption(o => o.setName('roblox').setDescription('Nom Roblox du buyer').setRequired(true))
-        .addStringOption(o => o.setName('time').setDescription('Durée (ex: 1w, 1mo, lifetime)').setRequired(true)),
+        .addStringOption(o => o.setName('time').setDescription('Durée (ex: 5d, 1w, 1mo, lifetime)').setRequired(true)),
 
     new SlashCommandBuilder()
         .setName('get-script')
-        .setDescription('Obtenir ton script (buyers seulement)'),
+        .setDescription('Obtenir ton script et ta clé (buyers seulement)'),
 
     new SlashCommandBuilder()
-        .setName('buyers')
-        .setDescription('Voir tous les buyers enregistrés'),
+        .setName('reset-hwid')
+        .setDescription('Réinitialiser ton HWID (buyers seulement)'),
+
+    new SlashCommandBuilder()
+        .setName('my-stats')
+        .setDescription('Voir le statut de ta clé (buyers seulement)'),
+
+    new SlashCommandBuilder()
+        .setName('keys')
+        .setDescription('Voir toutes les clés enregistrées'),
 
 ].map(c => c.toJSON());
 
@@ -451,7 +467,7 @@ client.on('interactionCreate', async interaction => {
 
     const cmd = interaction.commandName;
 
-    if (!isOwner(interaction) && cmd !== 'get-script') {
+    if (!isOwner(interaction) && !['get-script', 'reset-hwid', 'my-stats'].includes(cmd)) {
         return interaction.reply({
             embeds: [new EmbedBuilder().setDescription("⛔ Accès refusé.").setColor(RED)],
             ephemeral: true
@@ -487,7 +503,7 @@ client.on('interactionCreate', async interaction => {
                         { name: "📋 Whitelist",   value: "`/wl-add` `/wl-remove` `/wl-edit` `/wl-renew` `/wl-check` `/wl-list` `/wl-stats` `/wl-expire-soon` `/wl-clear` `/wl-purge-expired` `/wl-import` `/wl-search` `/wl-transfer` `/wl-batch-remove` `/wl-export` `/wl-renew-expired`", inline: false },
                         { name: "🚫 Blacklist",   value: "`/bl-add` `/bl-remove` `/bl-list` `/bl-check` `/bl-clear` `/bl-import`", inline: false },
                         { name: "📨 Messages",    value: "`/dmall` `/announce` `/dm` `/test-dm`",     inline: false },
-                        { name: "💰 Buyers",      value: "`/sell` `/get-script` `/buyers`",           inline: false },
+                        { name: "🔑 Clés",        value: "`/sell` `/get-script` `/reset-hwid` `/my-stats` `/keys`", inline: false },
                         { name: "🔧 Utilitaires", value: "`/ping` `/botinfo` `/status` `/free4all`",  inline: false }
                     )
                     .setColor(BLUE)
@@ -1596,45 +1612,43 @@ client.on('interactionCreate', async interaction => {
             if (time !== 'lifetime' && !parseDuration(time)) {
                 return interaction.editReply({
                     embeds: [new EmbedBuilder()
-                        .setDescription(`❌ Durée invalide : \`${time}\`. Exemples : \`1w\`, \`1mo\`, \`lifetime\``)
+                        .setDescription(`❌ Durée invalide : \`${time}\`. Exemples : \`5d\`, \`1w\`, \`1mo\`, \`lifetime\``)
                         .setColor(RED)]
                 });
             }
 
-            // Add to whitelist
-            let { content: wlContent, sha: wlSha } = await getFile();
-            wlContent = cleanExpired(wlContent);
-            const alreadyWL = parseUsers(wlContent).some(l => getUserName(l).toLowerCase() === robloxUser.toLowerCase());
-            if (!alreadyWL) {
-                wlContent = wlContent.trimEnd() + "\n" + buildEntry(robloxUser, time);
-                await updateFile(wlContent, wlSha);
-            }
+            const { data: keys, sha: keysSha } = await getKeysData();
 
-            // Save to buyers.json
-            const { data: buyers, sha: buyersSha } = await getBuyersData();
-            buyers[target.id] = {
-                roblox:     robloxUser,
-                time,
+            const existing = findKeyByDiscordId(keys, target.id);
+            if (existing) delete keys[existing[0]];
+
+            const key = generateKey();
+            const now = Math.floor(Date.now() / 1000);
+            const expiry = time === 'lifetime' ? null : now + Math.floor(parseDuration(time) / 1000);
+            keys[key] = {
+                discordId:  target.id,
                 discordTag: target.tag,
-                soldAt:     Math.floor(Date.now() / 1000)
+                roblox:     robloxUser,
+                expiry,
+                hwid:       null,
+                createdAt:  now
             };
-            await saveBuyersData(buyers, buyersSha);
+            await saveKeysData(keys, keysSha);
 
-            // Give buyer role
             if (BUYER_ROLE_ID) {
                 const member = await interaction.guild.members.fetch(target.id).catch(() => null);
                 if (member) await member.roles.add(BUYER_ROLE_ID).catch(() => {});
             }
 
-            // DM buyer notification
+            const expiryStr = expiry ? `<t:${expiry}:R>` : "♾️ Lifetime";
             try {
                 await target.send({
                     embeds: [new EmbedBuilder()
                         .setTitle("🎉 Accès accordé — SMVLL HUB")
-                        .setDescription(`Ton pseudo Roblox **${robloxUser}** a été whitelisté !\n\nUtilise \`/get-script\` dans le serveur pour obtenir ton script.`)
+                        .setDescription(`Tu as reçu une clé d'accès !\nUtilise \`/get-script\` dans le serveur pour obtenir ton script + ta clé.`)
                         .addFields(
-                            { name: "⏱️ Durée",  value: time,       inline: true },
-                            { name: "🎮 Roblox", value: robloxUser, inline: true }
+                            { name: "🎮 Roblox",  value: robloxUser, inline: true },
+                            { name: "⏱️ Expire",  value: expiryStr,  inline: true }
                         )
                         .setColor(GREEN)
                         .setFooter({ text: "SMVLL HUB • HS CORP" })
@@ -1645,12 +1659,12 @@ client.on('interactionCreate', async interaction => {
 
             await interaction.editReply({
                 embeds: [new EmbedBuilder()
-                    .setTitle("✅ Buyer enregistré")
+                    .setTitle("✅ Clé créée")
                     .addFields(
-                        { name: "👤 Discord", value: target.tag,                            inline: true },
-                        { name: "🎮 Roblox",  value: robloxUser,                            inline: true },
-                        { name: "⏱️ Durée",  value: time,                                   inline: true },
-                        { name: "✅ WL",      value: alreadyWL ? "Déjà présent" : "Ajouté", inline: true }
+                        { name: "👤 Discord", value: target.tag,    inline: true },
+                        { name: "🎮 Roblox",  value: robloxUser,   inline: true },
+                        { name: "⏱️ Expire", value: expiryStr,     inline: true },
+                        { name: "🔑 Clé",     value: `\`${key}\``, inline: false }
                     )
                     .setColor(GREEN)
                     .setFooter({ text: "SMVLL HUB • HS CORP" })
@@ -1658,16 +1672,15 @@ client.on('interactionCreate', async interaction => {
                 ]
             });
 
-            sendLog("💰 Nouveau buyer", [
+            sendLog("💰 Nouvelle clé créée", [
                 { name: "👤 Discord", value: `${target.tag} (${target.id})`, inline: true },
                 { name: "🎮 Roblox",  value: robloxUser,                      inline: true },
-                { name: "⏱️ Durée",  value: time,                             inline: true },
+                { name: "⏱️ Expire", value: expiryStr,                        inline: true },
                 { name: "👮 Par",     value: interaction.user.tag,             inline: true }
             ], GREEN);
         }
 
         else if (cmd === 'get-script') {
-            // Check buyer role
             if (BUYER_ROLE_ID) {
                 const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
                 if (!member || !member.roles.cache.has(BUYER_ROLE_ID)) {
@@ -1679,42 +1692,42 @@ client.on('interactionCreate', async interaction => {
                 }
             }
 
-            const { data: buyers } = await getBuyersData();
-            const buyerData = buyers[interaction.user.id];
+            const { data: keys } = await getKeysData();
+            const entry = findKeyByDiscordId(keys, interaction.user.id);
 
-            if (!buyerData) {
+            if (!entry) {
                 return interaction.editReply({
                     embeds: [new EmbedBuilder()
-                        .setDescription("❌ Tu n'es pas enregistré comme buyer. Contacte le support.")
+                        .setDescription("❌ Aucune clé associée à ton compte. Contacte le support.")
                         .setColor(RED)]
                 });
             }
 
-            // Try to generate a PandaDev key if API key is configured
-            let loadstringLine = `loadstring(game:HttpGet("https://vss.pandadevelopment.net/virtual/file/${PANDA_FILE_ID}"))()`;
-            if (PANDA_API_KEY) {
-                try {
-                    const res = await axios.post(
-                        `https://vss.pandadevelopment.net/api/keys/create`,
-                        { note: `${interaction.user.tag} — ${buyerData.roblox}` },
-                        { headers: { Authorization: `Bearer ${PANDA_API_KEY}`, 'Content-Type': 'application/json' } }
-                    );
-                    const key = res.data.key || res.data.id;
-                    if (key) loadstringLine = `loadstring(game:HttpGet("https://vss.pandadevelopment.net/virtual/file/${PANDA_FILE_ID}"))("${key}")`;
-                } catch (e) {
-                    console.error("PandaDev key gen error:", e.message);
-                }
+            const [key, keyData] = entry;
+            const now = Math.floor(Date.now() / 1000);
+
+            if (keyData.expiry && keyData.expiry < now) {
+                return interaction.editReply({
+                    embeds: [new EmbedBuilder()
+                        .setDescription("⛔ Ta clé a **expiré**. Contacte le support pour renouveler.")
+                        .setColor(RED)]
+                });
             }
+
+            const scriptUrl  = process.env.SCRIPT_LOADSTRING_URL || '';
+            const loadstring = `SCRIPT_KEY = "${key}"\nloadstring(game:HttpGet("${scriptUrl || 'CONFIGURE_SCRIPT_LOADSTRING_URL'}"))()`;
 
             try {
                 await interaction.user.send({
                     embeds: [new EmbedBuilder()
                         .setTitle("🚀 SMVLL HUB — Ton Script")
-                        .setDescription(`Copie le loadstring dans ton exécuteur Roblox.\n\`\`\`lua\n${loadstringLine}\n\`\`\``)
+                        .setDescription(`**Mets ce code dans ton exécuteur Roblox :**\n\`\`\`lua\n${loadstring}\n\`\`\``)
                         .addFields(
-                            { name: "🎮 Roblox",  value: buyerData.roblox, inline: true },
-                            { name: "⏱️ Accès",   value: buyerData.time,   inline: true },
-                            { name: "💬 Support", value: "Pour tout problème, crée un ticket dans le serveur.", inline: false }
+                            { name: "🔑 Ta clé",  value: `\`${key}\``,                                                inline: false },
+                            { name: "🎮 Roblox",  value: keyData.roblox,                                             inline: true },
+                            { name: "⏱️ Expire", value: keyData.expiry ? `<t:${keyData.expiry}:R>` : "♾️ Lifetime", inline: true },
+                            { name: "🖥️ HWID",   value: keyData.hwid ? "🔒 Verrouillé" : "🔓 Non verrouillé",      inline: true },
+                            { name: "💬 Support", value: "Pour tout problème, crée un ticket dans le serveur.",      inline: false }
                         )
                         .setColor(GREEN)
                         .setFooter({ text: "SMVLL HUB • HS CORP" })
@@ -1724,13 +1737,13 @@ client.on('interactionCreate', async interaction => {
 
                 await interaction.editReply({
                     embeds: [new EmbedBuilder()
-                        .setDescription("✅ Ton script a été envoyé en DM !")
+                        .setDescription("✅ Ton script et ta clé ont été envoyés en DM !")
                         .setColor(GREEN)]
                 });
 
                 sendLog("📤 Script envoyé (get-script)", [
                     { name: "👤 Discord", value: interaction.user.tag, inline: true },
-                    { name: "🎮 Roblox",  value: buyerData.roblox,     inline: true }
+                    { name: "🎮 Roblox",  value: keyData.roblox,       inline: true }
                 ], BLUE);
 
             } catch {
@@ -1742,23 +1755,105 @@ client.on('interactionCreate', async interaction => {
             }
         }
 
-        else if (cmd === 'buyers') {
-            const { data: buyers } = await getBuyersData();
-            const entries = Object.entries(buyers);
+        else if (cmd === 'reset-hwid') {
+            const { data: keys, sha } = await getKeysData();
+            const entry = findKeyByDiscordId(keys, interaction.user.id);
 
-            if (entries.length === 0) {
+            if (!entry) {
                 return interaction.editReply({
-                    embeds: [new EmbedBuilder().setDescription("📋 Aucun buyer enregistré.").setColor(YELLOW)]
+                    embeds: [new EmbedBuilder()
+                        .setDescription("❌ Aucune clé associée à ton compte.")
+                        .setColor(RED)]
                 });
             }
 
-            const list = entries.map(([id, d]) =>
-                `• <@${id}> — **${d.roblox}** — \`${d.time}\``
-            ).join("\n");
+            const [key, keyData] = entry;
+            if (!keyData.hwid) {
+                return interaction.editReply({
+                    embeds: [new EmbedBuilder()
+                        .setDescription("⚠️ Ton HWID n'est pas encore verrouillé.")
+                        .setColor(YELLOW)]
+                });
+            }
+
+            keyData.hwid = null;
+            keys[key] = keyData;
+            await saveKeysData(keys, sha);
 
             await interaction.editReply({
                 embeds: [new EmbedBuilder()
-                    .setTitle(`💰 Buyers — ${entries.length} enregistrés`)
+                    .setTitle("🔓 HWID réinitialisé")
+                    .setDescription("Ton HWID a été remis à zéro. Il se verrouillera automatiquement à la prochaine exécution du script.")
+                    .setColor(GREEN)
+                    .setFooter({ text: "SMVLL HUB • HS CORP" })
+                    .setTimestamp()
+                ]
+            });
+
+            sendLog("🔓 HWID reset", [
+                { name: "👤 Discord", value: interaction.user.tag, inline: true },
+                { name: "🎮 Roblox",  value: keyData.roblox,       inline: true }
+            ], ORANGE);
+        }
+
+        else if (cmd === 'my-stats') {
+            const { data: keys } = await getKeysData();
+            const entry = findKeyByDiscordId(keys, interaction.user.id);
+
+            if (!entry) {
+                return interaction.editReply({
+                    embeds: [new EmbedBuilder()
+                        .setDescription("❌ Aucune clé associée à ton compte.")
+                        .setColor(RED)]
+                });
+            }
+
+            const [key, keyData] = entry;
+            const now = Math.floor(Date.now() / 1000);
+            const expired = keyData.expiry && keyData.expiry < now;
+            const expiryStr = keyData.expiry
+                ? (expired ? "⛔ Expirée" : `<t:${keyData.expiry}:R>`)
+                : "♾️ Lifetime";
+
+            await interaction.editReply({
+                embeds: [new EmbedBuilder()
+                    .setTitle("📊 Mes stats — SMVLL HUB")
+                    .addFields(
+                        { name: "🔑 Clé",    value: `\`${key.slice(0, 12)}...\``,                             inline: false },
+                        { name: "🎮 Roblox", value: keyData.roblox,                                           inline: true },
+                        { name: "⏱️ Expire", value: expiryStr,                                                inline: true },
+                        { name: "📌 Statut", value: expired ? "⛔ Expirée" : "✅ Active",                    inline: true },
+                        { name: "🖥️ HWID",  value: keyData.hwid ? "🔒 Verrouillé" : "🔓 Non verrouillé",  inline: true },
+                        { name: "📅 Créée",  value: `<t:${keyData.createdAt}:D>`,                            inline: true }
+                    )
+                    .setColor(expired ? RED : GREEN)
+                    .setFooter({ text: "SMVLL HUB • HS CORP" })
+                    .setTimestamp()
+                ]
+            });
+        }
+
+        else if (cmd === 'keys') {
+            const { data: keys } = await getKeysData();
+            const entries = Object.entries(keys);
+
+            if (entries.length === 0) {
+                return interaction.editReply({
+                    embeds: [new EmbedBuilder().setDescription("🔑 Aucune clé enregistrée.").setColor(YELLOW)]
+                });
+            }
+
+            const now = Math.floor(Date.now() / 1000);
+            const list = entries.map(([k, d]) => {
+                const expired = d.expiry && d.expiry < now;
+                const status  = expired ? "⛔" : "✅";
+                const exp     = d.expiry ? `<t:${d.expiry}:d>` : "∞";
+                return `${status} <@${d.discordId}> — **${d.roblox}** — ${exp} — \`${k.slice(0, 12)}...\``;
+            }).join("\n");
+
+            await interaction.editReply({
+                embeds: [new EmbedBuilder()
+                    .setTitle(`🔑 Clés — ${entries.length} enregistrées`)
                     .setDescription(list.slice(0, 4000))
                     .setColor(GREEN)
                     .setFooter({ text: "SMVLL HUB • HS CORP" })
