@@ -1,5 +1,5 @@
 --config
-whitelist=false
+whitelist=true
 dodo1424x,
 Timotheeprime8,
 Tiziano21349856,
