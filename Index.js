@@ -30,6 +30,9 @@ const CLIENT_ID       = process.env.CLIENT_ID;
 const GUILD_ID        = process.env.GUILD_ID;
 const OWNER_ID        = process.env.OWNER_ID;
 const PREMIUM_ROLE_ID = "1486435751297159378";
+const PANDA_API_KEY   = process.env.PANDA_API_KEY;
+const PANDA_FILE_ID   = process.env.PANDA_FILE_ID || "fa8102b2cff041cd";
+const BUYER_ROLE_ID   = process.env.BUYER_ROLE_ID;
 
 const GREEN  = 0x00FF64;
 const RED    = 0xFF4444;
@@ -72,6 +75,19 @@ async function createFile(content, filename) {
         },
         { headers: { Authorization: `token ${GITHUB_TOKEN}` } }
     );
+}
+
+// ─── Buyers helpers ───────────────────────────────────────────────────────────
+
+async function getBuyersData() {
+    const f = await getFile("buyers.json").catch(() => null);
+    return { data: f ? JSON.parse(f.content) : {}, sha: f ? f.sha : null };
+}
+
+async function saveBuyersData(data, sha) {
+    const content = JSON.stringify(data, null, 2);
+    if (sha) await updateFile(content, sha, "buyers.json");
+    else      await createFile(content, "buyers.json");
 }
 
 // ─── Free4All state ───────────────────────────────────────────────────────────
@@ -373,7 +389,8 @@ const commands = [
 
     new SlashCommandBuilder()
         .setName('free4all')
-        .setDescription('Toggle Free4All — désactive la WL et gèle les expirations'),
+        .setDescription('Toggle Free4All — désactive la WL et gèle les expirations')
+        .addStringOption(o => o.setName('time').setDescription('Durée optionnelle (ex: 1h, 1d, 1w)').setRequired(false)),
 
     new SlashCommandBuilder()
         .setName('unlock')
@@ -384,6 +401,21 @@ const commands = [
         .setDescription('Ajouter du temps à tous les actifs + expirés depuis max X (depuis GitHub)')
         .addStringOption(o => o.setName('time').setDescription('Temps à ajouter (ex: 1w, 1mo, lifetime)').setRequired(true))
         .addStringOption(o => o.setName('since').setDescription('Inclure aussi les expirés depuis max X (ex: 1w, 1mo). Vide = actifs seulement').setRequired(false)),
+
+    new SlashCommandBuilder()
+        .setName('sell')
+        .setDescription('Enregistrer un buyer et lui donner accès au script')
+        .addUserOption(o => o.setName('user').setDescription('Membre Discord').setRequired(true))
+        .addStringOption(o => o.setName('roblox').setDescription('Nom Roblox du buyer').setRequired(true))
+        .addStringOption(o => o.setName('time').setDescription('Durée (ex: 1w, 1mo, lifetime)').setRequired(true)),
+
+    new SlashCommandBuilder()
+        .setName('get-script')
+        .setDescription('Obtenir ton script (buyers seulement)'),
+
+    new SlashCommandBuilder()
+        .setName('buyers')
+        .setDescription('Voir tous les buyers enregistrés'),
 
 ].map(c => c.toJSON());
 
@@ -417,7 +449,9 @@ client.once('ready', async () => {
 client.on('interactionCreate', async interaction => {
     if (!interaction.isChatInputCommand()) return;
 
-    if (!isOwner(interaction)) {
+    const cmd = interaction.commandName;
+
+    if (!isOwner(interaction) && cmd !== 'get-script') {
         return interaction.reply({
             embeds: [new EmbedBuilder().setDescription("⛔ Accès refusé.").setColor(RED)],
             ephemeral: true
@@ -436,7 +470,6 @@ client.on('interactionCreate', async interaction => {
     }
 
     try {
-        const cmd = interaction.commandName;
 
         if (cmd === 'help') {
             await interaction.editReply({
@@ -453,8 +486,9 @@ client.on('interactionCreate', async interaction => {
                         { name: "━━━━━━━━━━━━━━━━", value: "**Commandes**", inline: false },
                         { name: "📋 Whitelist",   value: "`/wl-add` `/wl-remove` `/wl-edit` `/wl-renew` `/wl-check` `/wl-list` `/wl-stats` `/wl-expire-soon` `/wl-clear` `/wl-purge-expired` `/wl-import` `/wl-search` `/wl-transfer` `/wl-batch-remove` `/wl-export` `/wl-renew-expired`", inline: false },
                         { name: "🚫 Blacklist",   value: "`/bl-add` `/bl-remove` `/bl-list` `/bl-check` `/bl-clear` `/bl-import`", inline: false },
-                        { name: "📨 Messages",    value: "`/dmall` `/announce` `/dm` `/test-dm`", inline: false },
-                        { name: "🔧 Utilitaires", value: "`/ping` `/botinfo` `/status` `/free4all`", inline: false }
+                        { name: "📨 Messages",    value: "`/dmall` `/announce` `/dm` `/test-dm`",        inline: false },
+                        { name: "💰 Buyers",      value: "`/sell` `/get-script` `/buyers`",              inline: false },
+                        { name: "🔧 Utilitaires", value: "`/ping` `/botinfo` `/status` `/free4all`",     inline: false }
                     )
                     .setColor(BLUE)
                     .setFooter({ text: "SMVLL HUB • HS CORP" })
@@ -1554,6 +1588,185 @@ client.on('interactionCreate', async interaction => {
             ], PURPLE);
         }
 
+        else if (cmd === 'sell') {
+            const target     = interaction.options.getUser('user');
+            const robloxUser = interaction.options.getString('roblox');
+            const time       = interaction.options.getString('time');
+
+            if (time !== 'lifetime' && !parseDuration(time)) {
+                return interaction.editReply({
+                    embeds: [new EmbedBuilder()
+                        .setDescription(`❌ Durée invalide : \`${time}\`. Exemples : \`1w\`, \`1mo\`, \`lifetime\``)
+                        .setColor(RED)]
+                });
+            }
+
+            // Add to whitelist
+            let { content: wlContent, sha: wlSha } = await getFile();
+            wlContent = cleanExpired(wlContent);
+            const alreadyWL = parseUsers(wlContent).some(l => getUserName(l).toLowerCase() === robloxUser.toLowerCase());
+            if (!alreadyWL) {
+                wlContent = wlContent.trimEnd() + "\n" + buildEntry(robloxUser, time);
+                await updateFile(wlContent, wlSha);
+            }
+
+            // Save to buyers.json
+            const { data: buyers, sha: buyersSha } = await getBuyersData();
+            buyers[target.id] = {
+                roblox:     robloxUser,
+                time,
+                discordTag: target.tag,
+                soldAt:     Math.floor(Date.now() / 1000)
+            };
+            await saveBuyersData(buyers, buyersSha);
+
+            // Give buyer role
+            if (BUYER_ROLE_ID) {
+                const member = await interaction.guild.members.fetch(target.id).catch(() => null);
+                if (member) await member.roles.add(BUYER_ROLE_ID).catch(() => {});
+            }
+
+            // DM buyer notification
+            try {
+                await target.send({
+                    embeds: [new EmbedBuilder()
+                        .setTitle("🎉 Accès accordé — SMVLL HUB")
+                        .setDescription(`Ton pseudo Roblox **${robloxUser}** a été whitelisté !\n\nUtilise \`/get-script\` dans le serveur pour obtenir ton script.`)
+                        .addFields(
+                            { name: "⏱️ Durée",  value: time,       inline: true },
+                            { name: "🎮 Roblox", value: robloxUser, inline: true }
+                        )
+                        .setColor(GREEN)
+                        .setFooter({ text: "SMVLL HUB • HS CORP" })
+                        .setTimestamp()
+                    ]
+                });
+            } catch {}
+
+            await interaction.editReply({
+                embeds: [new EmbedBuilder()
+                    .setTitle("✅ Buyer enregistré")
+                    .addFields(
+                        { name: "👤 Discord", value: target.tag,                          inline: true },
+                        { name: "🎮 Roblox",  value: robloxUser,                          inline: true },
+                        { name: "⏱️ Durée",  value: time,                                 inline: true },
+                        { name: "✅ WL",      value: alreadyWL ? "Déjà présent" : "Ajouté", inline: true }
+                    )
+                    .setColor(GREEN)
+                    .setFooter({ text: "SMVLL HUB • HS CORP" })
+                    .setTimestamp()
+                ]
+            });
+
+            sendLog("💰 Nouveau buyer", [
+                { name: "👤 Discord", value: `${target.tag} (${target.id})`, inline: true },
+                { name: "🎮 Roblox",  value: robloxUser,                      inline: true },
+                { name: "⏱️ Durée",  value: time,                             inline: true },
+                { name: "👮 Par",     value: interaction.user.tag,             inline: true }
+            ], GREEN);
+        }
+
+        else if (cmd === 'get-script') {
+            // Check buyer role
+            if (BUYER_ROLE_ID) {
+                const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+                if (!member || !member.roles.cache.has(BUYER_ROLE_ID)) {
+                    return interaction.editReply({
+                        embeds: [new EmbedBuilder()
+                            .setDescription("⛔ Tu n'as pas le rôle **Buyer** requis.")
+                            .setColor(RED)]
+                    });
+                }
+            }
+
+            const { data: buyers } = await getBuyersData();
+            const buyerData = buyers[interaction.user.id];
+
+            if (!buyerData) {
+                return interaction.editReply({
+                    embeds: [new EmbedBuilder()
+                        .setDescription("❌ Tu n'es pas enregistré comme buyer. Contacte le support.")
+                        .setColor(RED)]
+                });
+            }
+
+            // Try to generate a PandaDev key if API key is set
+            let loadstringLine = `loadstring(game:HttpGet("https://vss.pandadevelopment.net/virtual/file/${PANDA_FILE_ID}"))()`;
+            if (PANDA_API_KEY) {
+                try {
+                    const res = await axios.post(
+                        `https://vss.pandadevelopment.net/api/keys/create`,
+                        { note: `${interaction.user.tag} — ${buyerData.roblox}` },
+                        { headers: { Authorization: `Bearer ${PANDA_API_KEY}`, 'Content-Type': 'application/json' } }
+                    );
+                    const key = res.data.key || res.data.id;
+                    if (key) loadstringLine = `loadstring(game:HttpGet("https://vss.pandadevelopment.net/virtual/file/${PANDA_FILE_ID}"))("${key}")`;
+                } catch (e) {
+                    console.error("PandaDev key gen error:", e.message);
+                }
+            }
+
+            try {
+                await interaction.user.send({
+                    embeds: [new EmbedBuilder()
+                        .setTitle("🚀 SMVLL HUB — Ton Script")
+                        .setDescription(`Copie le loadstring dans ton exécuteur Roblox.\n\`\`\`lua\n${loadstringLine}\n\`\`\``)
+                        .addFields(
+                            { name: "🎮 Roblox",  value: buyerData.roblox, inline: true },
+                            { name: "⏱️ Accès",   value: buyerData.time,   inline: true },
+                            { name: "💬 Support", value: "Pour tout problème, crée un ticket dans le serveur.", inline: false }
+                        )
+                        .setColor(GREEN)
+                        .setFooter({ text: "SMVLL HUB • HS CORP" })
+                        .setTimestamp()
+                    ]
+                });
+
+                await interaction.editReply({
+                    embeds: [new EmbedBuilder()
+                        .setDescription("✅ Ton script a été envoyé en DM !")
+                        .setColor(GREEN)]
+                });
+
+                sendLog("📤 Script envoyé (get-script)", [
+                    { name: "👤 Discord", value: interaction.user.tag, inline: true },
+                    { name: "🎮 Roblox",  value: buyerData.roblox,     inline: true }
+                ], BLUE);
+
+            } catch {
+                await interaction.editReply({
+                    embeds: [new EmbedBuilder()
+                        .setDescription("❌ Impossible d'envoyer le DM. Vérifie tes paramètres Discord.")
+                        .setColor(RED)]
+                });
+            }
+        }
+
+        else if (cmd === 'buyers') {
+            const { data: buyers } = await getBuyersData();
+            const entries = Object.entries(buyers);
+
+            if (entries.length === 0) {
+                return interaction.editReply({
+                    embeds: [new EmbedBuilder().setDescription("📋 Aucun buyer enregistré.").setColor(YELLOW)]
+                });
+            }
+
+            const list = entries.map(([id, d]) =>
+                `• <@${id}> — **${d.roblox}** — \`${d.time}\``
+            ).join("\n");
+
+            await interaction.editReply({
+                embeds: [new EmbedBuilder()
+                    .setTitle(`💰 Buyers — ${entries.length} enregistrés`)
+                    .setDescription(list.slice(0, 4000))
+                    .setColor(GREEN)
+                    .setFooter({ text: "SMVLL HUB • HS CORP" })
+                    .setTimestamp()
+                ]
+            });
+        }
+
     } catch (err) {
         console.error(err);
         interaction.editReply({
@@ -1701,6 +1914,24 @@ client.login(TOKEN);
 // ─── Keep-alive (auto self-ping, no UptimeRobot needed) ──────────────────────
 const PORT = process.env.PORT || 3000;
 http.createServer((req, res) => {
+    if (req.method === 'POST' && req.url === '/webhook/panda') {
+        let body = '';
+        req.on('data', chunk => { body += chunk; });
+        req.on('end', () => {
+            try {
+                const data = JSON.parse(body);
+                const robloxUser = data.robloxUsername || data.username || data.user;
+                if (robloxUser) {
+                    sendLog("🎮 Script exécuté", [
+                        { name: "🎮 Roblox", value: robloxUser, inline: true }
+                    ], BLUE);
+                }
+            } catch {}
+            res.writeHead(200);
+            res.end('ok');
+        });
+        return;
+    }
     res.writeHead(200);
     res.end("SMVLL HUB — online");
 }).listen(PORT, () => {
