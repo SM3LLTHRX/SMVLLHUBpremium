@@ -1588,24 +1588,27 @@ client.on('messageCreate', async msg => {
     if (msg.author.bot || !msg.guild) return;
     if (msg.author.id === OWNER_ID) return;
 
+    const isAd             = AD_PATTERNS.some(p => p.test(msg.content));
     const hasChannelMention = /<#\d+>/.test(msg.content);
-    const isAd = AD_PATTERNS.some(p => p.test(msg.content));
+    const hasHeading        = /^#{1,3} /m.test(msg.content);
 
-    if (!hasChannelMention && !isAd) return;
+    if (!isAd && !hasChannelMention && !hasHeading) return;
 
     try {
         const content = msg.content.slice(0, 300);
         await msg.delete();
-        const reason = hasChannelMention ? "Mention de salon" : "Publicité";
+        const reason = hasHeading        ? "Gros texte interdit"
+                     : hasChannelMention ? "Mention de salon"
+                     : "Publicité";
         sendLog("🗑️ Message supprimé", [
-            { name: "👤 User",     value: `${msg.author.tag} (${msg.author.id})`, inline: true },
-            { name: "📌 Channel", value: `<#${msg.channel.id}>`,                  inline: true },
-            { name: "⚠️ Raison",  value: reason,                                  inline: true },
-            { name: "📝 Contenu", value: `\`\`\`${content}\`\`\``,               inline: false }
+            { name: "👤 User",    value: `${msg.author.tag} (${msg.author.id})`, inline: true },
+            { name: "📌 Channel", value: `<#${msg.channel.id}>`,                 inline: true },
+            { name: "⚠️ Raison", value: reason,                                  inline: true },
+            { name: "📝 Contenu", value: `\`\`\`${content}\`\`\``,              inline: false }
         ], ORANGE);
         const warn = await msg.channel.send({
             embeds: [new EmbedBuilder()
-                .setDescription(`⛔ <@${msg.author.id}> — ${reason} interdite.`)
+                .setDescription(`⛔ <@${msg.author.id}> — ${reason}.`)
                 .setColor(RED)]
         });
         setTimeout(() => warn.delete().catch(() => {}), 5000);
