@@ -1687,9 +1687,18 @@ client.on('guildMemberAdd', async member => {
 
 client.login(TOKEN);
 
-// ─── Keep-alive HTTP server (Render + UptimeRobot) ────────────────────────────
+// ─── Keep-alive (auto self-ping, no UptimeRobot needed) ──────────────────────
 const PORT = process.env.PORT || 3000;
 http.createServer((req, res) => {
     res.writeHead(200);
     res.end("SMVLL HUB — online");
-}).listen(PORT, () => console.log(`✅ Keep-alive server sur le port ${PORT}`));
+}).listen(PORT, () => {
+    console.log(`✅ Keep-alive server sur le port ${PORT}`);
+    const selfUrl = process.env.RENDER_EXTERNAL_URL;
+    if (selfUrl) {
+        setInterval(() => {
+            axios.get(selfUrl).catch(() => {});
+        }, 4 * 60 * 1000);
+        console.log(`✅ Auto self-ping actif → ${selfUrl}`);
+    }
+});
