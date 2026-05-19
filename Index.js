@@ -41,7 +41,7 @@ const BLUE   = 0x4488FF;
 const ORANGE = 0xFF8800;
 const PURPLE = 0xAA44FF;
 
-// ─── GitHub helpers ───────────────────────────────────────────────────────────
+// ─── GitHub helpers ─────────────────────────────────────────────
 
 async function getFile(filename = "whitelist.txt") {
     const res = await axios.get(
@@ -77,7 +77,7 @@ async function createFile(content, filename) {
     );
 }
 
-// ─── Buyers helpers ───────────────────────────────────────────────────────────
+// ─── Buyers helpers ─────────────────────────────────────────────
 
 async function getBuyersData() {
     const f = await getFile("buyers.json").catch(() => null);
@@ -90,7 +90,7 @@ async function saveBuyersData(data, sha) {
     else      await createFile(content, "buyers.json");
 }
 
-// ─── Free4All state ───────────────────────────────────────────────────────────
+// ─── Free4All state ─────────────────────────────────────────────
 
 let free4allSince = null; // ms timestamp when started, null if inactive
 
@@ -143,7 +143,7 @@ function setConfigValue(content, key, value) {
     return lines.join("\n");
 }
 
-// ─── Whitelist helpers ────────────────────────────────────────────────────────
+// ─── Whitelist helpers ────────────────────────────────────────────
 
 function parseUsers(content) {
     return content.split("\n").map(l => l.trim()).filter(l => l.length > 0);
@@ -186,7 +186,7 @@ function buildEntry(user, time) {
     return `${user},${expire}`;
 }
 
-// ─── Logging ──────────────────────────────────────────────────────────────────
+// ─── Logging ─────────────────────────────────────────────────────
 
 function sendLog(title, fields, color = GREEN) {
     const channel = client.channels.cache.get(LOG_CHANNEL_ID);
@@ -207,7 +207,7 @@ function isOwner(interaction) {
     return interaction.user.id === OWNER_ID;
 }
 
-// ─── Auto expiry check ────────────────────────────────────────────────────────
+// ─── Auto expiry check ────────────────────────────────────────────
 
 async function checkExpiringSoon() {
     if (free4allSince !== null) return;
@@ -245,7 +245,7 @@ async function checkExpiringSoon() {
     }
 }
 
-// ─── Commands ─────────────────────────────────────────────────────────────────
+// ─── Commands ────────────────────────────────────────────────────────
 
 const commands = [
     new SlashCommandBuilder()
@@ -419,7 +419,7 @@ const commands = [
 
 ].map(c => c.toJSON());
 
-// ─── Ready ────────────────────────────────────────────────────────────────────
+// ─── Ready ─────────────────────────────────────────────────────────────
 
 client.once('ready', async () => {
     console.log(`✅ Bot connecté : ${client.user.tag}`);
@@ -444,7 +444,7 @@ client.once('ready', async () => {
     checkExpiringSoon();
 });
 
-// ─── Interactions ─────────────────────────────────────────────────────────────
+// ─── Interactions ───────────────────────────────────────────────────────
 
 client.on('interactionCreate', async interaction => {
     if (!interaction.isChatInputCommand()) return;
@@ -486,9 +486,9 @@ client.on('interactionCreate', async interaction => {
                         { name: "━━━━━━━━━━━━━━━━", value: "**Commandes**", inline: false },
                         { name: "📋 Whitelist",   value: "`/wl-add` `/wl-remove` `/wl-edit` `/wl-renew` `/wl-check` `/wl-list` `/wl-stats` `/wl-expire-soon` `/wl-clear` `/wl-purge-expired` `/wl-import` `/wl-search` `/wl-transfer` `/wl-batch-remove` `/wl-export` `/wl-renew-expired`", inline: false },
                         { name: "🚫 Blacklist",   value: "`/bl-add` `/bl-remove` `/bl-list` `/bl-check` `/bl-clear` `/bl-import`", inline: false },
-                        { name: "📨 Messages",    value: "`/dmall` `/announce` `/dm` `/test-dm`",        inline: false },
-                        { name: "💰 Buyers",      value: "`/sell` `/get-script` `/buyers`",              inline: false },
-                        { name: "🔧 Utilitaires", value: "`/ping` `/botinfo` `/status` `/free4all`",     inline: false }
+                        { name: "📨 Messages",    value: "`/dmall` `/announce` `/dm` `/test-dm`",     inline: false },
+                        { name: "💰 Buyers",      value: "`/sell` `/get-script` `/buyers`",           inline: false },
+                        { name: "🔧 Utilitaires", value: "`/ping` `/botinfo` `/status` `/free4all`",  inline: false }
                     )
                     .setColor(BLUE)
                     .setFooter({ text: "SMVLL HUB • HS CORP" })
@@ -1647,9 +1647,9 @@ client.on('interactionCreate', async interaction => {
                 embeds: [new EmbedBuilder()
                     .setTitle("✅ Buyer enregistré")
                     .addFields(
-                        { name: "👤 Discord", value: target.tag,                          inline: true },
-                        { name: "🎮 Roblox",  value: robloxUser,                          inline: true },
-                        { name: "⏱️ Durée",  value: time,                                 inline: true },
+                        { name: "👤 Discord", value: target.tag,                            inline: true },
+                        { name: "🎮 Roblox",  value: robloxUser,                            inline: true },
+                        { name: "⏱️ Durée",  value: time,                                   inline: true },
                         { name: "✅ WL",      value: alreadyWL ? "Déjà présent" : "Ajouté", inline: true }
                     )
                     .setColor(GREEN)
@@ -1690,7 +1690,7 @@ client.on('interactionCreate', async interaction => {
                 });
             }
 
-            // Try to generate a PandaDev key if API key is set
+            // Try to generate a PandaDev key if API key is configured
             let loadstringLine = `loadstring(game:HttpGet("https://vss.pandadevelopment.net/virtual/file/${PANDA_FILE_ID}"))()`;
             if (PANDA_API_KEY) {
                 try {
@@ -1777,7 +1777,7 @@ client.on('interactionCreate', async interaction => {
     }
 });
 
-// ─── Automod — Anti-pub ───────────────────────────────────────────────────────
+// ─── Automod — Anti-pub ────────────────────────────────────────────────
 
 const AD_PATTERNS = [
     /discord\.gg\/[a-zA-Z0-9]+/i,
