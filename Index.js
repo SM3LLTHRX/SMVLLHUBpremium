@@ -1586,18 +1586,26 @@ const AD_PATTERNS = [
 
 client.on('messageCreate', async msg => {
     if (msg.author.bot || !msg.guild) return;
-    if (!AD_PATTERNS.some(p => p.test(msg.content))) return;
+    if (msg.author.id === OWNER_ID) return;
+
+    const hasChannelMention = /<#\d+>/.test(msg.content);
+    const isAd = AD_PATTERNS.some(p => p.test(msg.content));
+
+    if (!hasChannelMention && !isAd) return;
+
     try {
         const content = msg.content.slice(0, 300);
         await msg.delete();
-        sendLog("🗑️ Pub supprimée", [
+        const reason = hasChannelMention ? "Mention de salon" : "Publicité";
+        sendLog("🗑️ Message supprimé", [
             { name: "👤 User",     value: `${msg.author.tag} (${msg.author.id})`, inline: true },
             { name: "📌 Channel", value: `<#${msg.channel.id}>`,                  inline: true },
+            { name: "⚠️ Raison",  value: reason,                                  inline: true },
             { name: "📝 Contenu", value: `\`\`\`${content}\`\`\``,               inline: false }
         ], ORANGE);
         const warn = await msg.channel.send({
             embeds: [new EmbedBuilder()
-                .setDescription(`⛔ <@${msg.author.id}> — Publicité interdite.`)
+                .setDescription(`⛔ <@${msg.author.id}> — ${reason} interdite.`)
                 .setColor(RED)]
         });
         setTimeout(() => warn.delete().catch(() => {}), 5000);
