@@ -16,7 +16,9 @@ function parseDuration(str) {
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMembers
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent
     ]
 });
 
@@ -371,8 +373,11 @@ const commands = [
 
     new SlashCommandBuilder()
         .setName('free4all')
-        .setDescription('Toggle Free4All — désactive la WL et gèle les expirations')
-        .addStringOption(o => o.setName('time').setDescription('Durée (ex: 1h, 1d, 1w). Vide = manuel').setRequired(false)),
+        .setDescription('Toggle Free4All — désactive la WL et gèle les expirations'),
+
+    new SlashCommandBuilder()
+        .setName('unlock')
+        .setDescription('Lever le lockdown anti-raid manuellement'),
 
     new SlashCommandBuilder()
         .setName('wl-recover')
@@ -1498,6 +1503,30 @@ client.on('interactionCreate', async interaction => {
             }
         }
 
+        else if (cmd === 'unlock') {
+            const guild        = interaction.guild;
+            const everyoneRole = guild.roles.everyone;
+            let unlocked = 0;
+            for (const [, ch] of guild.channels.cache) {
+                if (!ch.isTextBased()) continue;
+                try {
+                    await ch.permissionOverwrites.edit(everyoneRole, { SendMessages: null });
+                    unlocked++;
+                } catch {}
+            }
+            raidLocked = false;
+            recentJoins.length = 0;
+            await interaction.editReply({
+                embeds: [new EmbedBuilder()
+                    .setTitle("🔓 Lockdown levé")
+                    .addFields({ name: "📌 Salons déverrouillés", value: `${unlocked}`, inline: true })
+                    .setColor(GREEN)]
+            });
+            sendLog("🔓 Lockdown levé", [
+                { name: "👮 Par", value: interaction.user.tag }
+            ], GREEN);
+        }
+
         else if (cmd === 'announce') {
             const targetChannel = interaction.options.getChannel('channel');
             const message       = interaction.options.getString('message');
@@ -1532,6 +1561,127 @@ client.on('interactionCreate', async interaction => {
                 .setDescription(`❌ Erreur : \`${err.message}\``)
                 .setColor(RED)]
         });
+    }
+});
+
+// ─── Automod — Anti-pub ───────────────────────────────────────────────────────
+
+const AD_PATTERNS = [
+    /discord\.gg\/[a-zA-Z0-9]+/i,
+    /discord\.com\/invite\/[a-zA-Z0-9]+/i,
+    /\.gg\/[a-zA-Z0-9]{2,}/i,
+    /\bin my bio\b/i,
+    /\bcheck( my)? bio\b/i,
+    /\bdm me\b/i,
+    /\bdm for\b/i,
+    /\bdm (me )?for\b/i,
+    /\bfree nitro\b/i,
+    /\bnitro\s*(gift|giveaway)\b/i,
+    /\bgift\s*nitro\b/i,
+    /steamcommunity\.com/i,
+    /\bself[- ]?promo\b/i,
+    /\badvertis(e|ing)\b/i,
+    /\badvert\b/i,
+];
+
+client.on('messageCreate', async msg => {
+    if (msg.author.bot || !msg.guild) return;
+    if (!AD_PATTERNS.some(p => p.test(msg.content))) return;
+    try {
+        const content = msg.content.slice(0, 300);
+        await msg.delete();
+        sendLog("🗑️ Pub supprimée", [
+            { name: "👤 User",     value: `${msg.author.tag} (${msg.author.id})`, inline: true },
+            { name: "📌 Channel", value: `<#${msg.channel.id}>`,                  inline: true },
+            { name: "📝 Contenu", value: `\`\`\`${content}\`\`\``,               inline: false }
+        ], ORANGE);
+        const warn = await msg.channel.send({
+            embeds: [new EmbedBuilder()
+                .setDescription(`⛔ <@${msg.author.id}> — Publicité interdite.`)
+                .setColor(RED)]
+        });
+        setTimeout(() => warn.delete().catch(() => {}), 5000);
+    } catch {}
+});
+
+// ─── Anti-raid ────────────────────────────────────────────────────────────────
+
+const RAID_THRESHOLD = 5;
+const RAID_WINDOW    = 8000;
+const recentJoins    = [];
+let   raidLocked     = false;
+
+client.on('guildMemberAdd', async member => {
+    const now = Date.now();
+    recentJoins.push({ id: member.id, ts: now });
+
+    // Purge les anciens
+    while (recentJoins.length && recentJoins[0].ts < now - RAID_WINDOW)
+        recentJoins.shift();
+
+    if (raidLocked) {
+        try { await member.kick("Anti-raid — lockdown actif"); } catch {}
+        return;
+    }
+
+    if (recentJoins.length >= RAID_THRESHOLD) {
+        raidLocked = true;
+        const guild   = member.guild;
+        const channel = client.channels.cache.get(LOG_CHANNEL_ID);
+
+        let kicked = 0;
+        for (const entry of [...recentJoins]) {
+            try {
+                const m = guild.members.cache.get(entry.id)
+                       || await guild.members.fetch(entry.id).catch(() => null);
+                if (m) { await m.kick("Anti-raid automatique"); kicked++; }
+            } catch {}
+        }
+
+        // Lockdown : bloque @everyone dans tous les salons texte
+        const everyoneRole = guild.roles.everyone;
+        for (const [, ch] of guild.channels.cache) {
+            if (!ch.isTextBased()) continue;
+            try {
+                await ch.permissionOverwrites.edit(everyoneRole, { SendMessages: false });
+            } catch {}
+        }
+
+        if (channel) {
+            channel.send({
+                embeds: [new EmbedBuilder()
+                    .setTitle("🚨 RAID DÉTECTÉ — Lockdown activé")
+                    .addFields(
+                        { name: "👢 Kickés",    value: `${kicked}`,                     inline: true },
+                        { name: "⚡ Joins/8s", value: `${recentJoins.length}`,           inline: true },
+                        { name: "🔒 Statut",   value: "Tous les salons verrouillés",    inline: false },
+                        { name: "ℹ️ Info",     value: "Fais `/unlock` pour déverrouiller", inline: false }
+                    )
+                    .setColor(RED)
+                    .setFooter({ text: "SMVLL HUB • HS CORP" })
+                    .setTimestamp()
+                ]
+            });
+        }
+
+        // Auto-unlock après 5 minutes
+        setTimeout(async () => {
+            for (const [, ch] of guild.channels.cache) {
+                if (!ch.isTextBased()) continue;
+                try {
+                    await ch.permissionOverwrites.edit(everyoneRole, { SendMessages: null });
+                } catch {}
+            }
+            raidLocked = false;
+            recentJoins.length = 0;
+            if (channel) {
+                channel.send({
+                    embeds: [new EmbedBuilder()
+                        .setDescription("✅ Lockdown levé automatiquement après 5 minutes.")
+                        .setColor(GREEN)]
+                });
+            }
+        }, 5 * 60 * 1000);
     }
 });
 
