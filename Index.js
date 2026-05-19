@@ -493,66 +493,67 @@ async function handleBuyerAction(interaction, action) {
             if (BUYER_ROLE_ID) {
                 const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
                 if (!member || !member.roles.cache.has(BUYER_ROLE_ID)) {
-                    return interaction.editReply({ embeds: [new EmbedBuilder().setDescription("⛔ Tu n'as pas le rôle **Buyer** requis.").setColor(RED)] });
+                    return interaction.editReply({ embeds: [new EmbedBuilder().setDescription("⛔ You don't have the required **Buyer** role.").setColor(RED)] });
                 }
             }
             const { data: keys } = await getKeysData();
             const entry = findKeyByDiscordId(keys, interaction.user.id);
-            if (!entry) return interaction.editReply({ embeds: [new EmbedBuilder().setDescription("❌ Aucune clé associée à ton compte. Contacte le support.").setColor(RED)] });
+            if (!entry) return interaction.editReply({ embeds: [new EmbedBuilder().setDescription("❌ No key linked to your account. Contact support.").setColor(RED)] });
             const [key, keyData] = entry;
             const now = Math.floor(Date.now() / 1000);
-            if (keyData.expiry && keyData.expiry < now) return interaction.editReply({ embeds: [new EmbedBuilder().setDescription("⛔ Ta clé a **expiré**. Contacte le support.").setColor(RED)] });
+            if (keyData.expiry && keyData.expiry < now) return interaction.editReply({ embeds: [new EmbedBuilder().setDescription("⛔ Your key has **expired**. Contact support to renew.").setColor(RED)] });
             const scriptUrl  = process.env.SCRIPT_LOADSTRING_URL || '';
             const loadstring = `SCRIPT_KEY = "${key}"\nloadstring(game:HttpGet("${scriptUrl || 'CONFIGURE_SCRIPT_LOADSTRING_URL'}"))()`;
             try {
                 await interaction.user.send({
+                    content: `\`\`\`lua\n${loadstring}\n\`\`\``,
                     embeds: [new EmbedBuilder()
-                        .setTitle("🚀 SMVLL HUB — Ton Script")
-                        .setDescription(`**Mets ce code dans ton exécuteur Roblox :**\n\`\`\`lua\n${loadstring}\n\`\`\``)
+                        .setTitle("🚀 SMVLL HUB V2 — Your Script")
+                        .setDescription("Paste the code above into your Roblox executor.")
                         .addFields(
-                            { name: "🔑 Ta clé",  value: `\`${key}\``,                                                inline: false },
-                            { name: "⏱️ Expire", value: keyData.expiry ? `<t:${keyData.expiry}:R>` : "♾️ Lifetime", inline: true },
-                            { name: "🖥️ HWID",   value: keyData.hwid ? "🔒 Verrouillé" : "🔓 Non verrouillé",      inline: true },
-                            { name: "💬 Support", value: "Pour tout problème, crée un ticket dans le serveur.",      inline: false }
+                            { name: "🔑 Your Key", value: `\`${key}\``,                                                inline: false },
+                            { name: "⏱️ Expires",  value: keyData.expiry ? `<t:${keyData.expiry}:R>` : "♾️ Lifetime", inline: true },
+                            { name: "🖥️ HWID",    value: keyData.hwid ? "🔒 Locked" : "🔓 Not locked",               inline: true },
+                            { name: "💬 Support",  value: "For any issue, open a ticket in the server.",               inline: false }
                         )
                         .setColor(GREEN).setFooter({ text: "SMVLL HUB • HS CORP" }).setTimestamp()
                     ]
                 });
-                await interaction.editReply({ embeds: [new EmbedBuilder().setDescription("✅ Ton script et ta clé ont été envoyés en DM !").setColor(GREEN)] });
-                sendLog("📤 Script envoyé (panel)", [{ name: "👤 Discord", value: interaction.user.tag, inline: true }], BLUE);
+                await interaction.editReply({ embeds: [new EmbedBuilder().setDescription("✅ Your script and key have been sent to your DMs!").setColor(GREEN)] });
+                sendLog("📤 Script sent (panel)", [{ name: "👤 Discord", value: interaction.user.tag, inline: true }], BLUE);
             } catch {
-                await interaction.editReply({ embeds: [new EmbedBuilder().setDescription("❌ Impossible d'envoyer le DM. Vérifie tes paramètres Discord.").setColor(RED)] });
+                await interaction.editReply({ embeds: [new EmbedBuilder().setDescription("❌ Could not send DM. Check your Discord privacy settings.").setColor(RED)] });
             }
 
         } else if (action === 'reset-hwid') {
             const { data: keys, sha } = await getKeysData();
             const entry = findKeyByDiscordId(keys, interaction.user.id);
-            if (!entry) return interaction.editReply({ embeds: [new EmbedBuilder().setDescription("❌ Aucune clé associée à ton compte.").setColor(RED)] });
+            if (!entry) return interaction.editReply({ embeds: [new EmbedBuilder().setDescription("❌ No key linked to your account.").setColor(RED)] });
             const [key, keyData] = entry;
-            if (!keyData.hwid) return interaction.editReply({ embeds: [new EmbedBuilder().setDescription("⚠️ Ton HWID n'est pas encore verrouillé.").setColor(YELLOW)] });
+            if (!keyData.hwid) return interaction.editReply({ embeds: [new EmbedBuilder().setDescription("⚠️ Your HWID is not locked yet.").setColor(YELLOW)] });
             keyData.hwid = null;
             keys[key] = keyData;
             await saveKeysData(keys, sha);
-            await interaction.editReply({ embeds: [new EmbedBuilder().setTitle("🔓 HWID réinitialisé").setDescription("Ton HWID a été remis à zéro. Il se verrouillera à la prochaine exécution.").setColor(GREEN).setFooter({ text: "SMVLL HUB • HS CORP" }).setTimestamp()] });
+            await interaction.editReply({ embeds: [new EmbedBuilder().setTitle("🔓 HWID Reset").setDescription("Your HWID has been cleared. It will lock again on your next script execution.").setColor(GREEN).setFooter({ text: "SMVLL HUB • HS CORP" }).setTimestamp()] });
             sendLog("🔓 HWID reset (panel)", [{ name: "👤 Discord", value: interaction.user.tag, inline: true }], ORANGE);
 
         } else if (action === 'my-stats') {
             const { data: keys } = await getKeysData();
             const entry = findKeyByDiscordId(keys, interaction.user.id);
-            if (!entry) return interaction.editReply({ embeds: [new EmbedBuilder().setDescription("❌ Aucune clé associée à ton compte.").setColor(RED)] });
+            if (!entry) return interaction.editReply({ embeds: [new EmbedBuilder().setDescription("❌ No key linked to your account.").setColor(RED)] });
             const [key, keyData] = entry;
             const now = Math.floor(Date.now() / 1000);
             const expired = keyData.expiry && keyData.expiry < now;
-            const expiryStr = keyData.expiry ? (expired ? "⛔ Expirée" : `<t:${keyData.expiry}:R>`) : "♾️ Lifetime";
+            const expiryStr = keyData.expiry ? (expired ? "⛔ Expired" : `<t:${keyData.expiry}:R>`) : "♾️ Lifetime";
             await interaction.editReply({
                 embeds: [new EmbedBuilder()
-                    .setTitle("📊 Mes stats — SMVLL HUB")
+                    .setTitle("📊 My Stats — SMVLL HUB V2")
                     .addFields(
-                        { name: "🔑 Clé",    value: `\`${key.slice(0, 12)}...\``,                            inline: false },
-                        { name: "⏱️ Expire", value: expiryStr,                                               inline: true },
-                        { name: "📌 Statut", value: expired ? "⛔ Expirée" : "✅ Active",                    inline: true },
-                        { name: "🖥️ HWID",  value: keyData.hwid ? "🔒 Verrouillé" : "🔓 Non verrouillé",  inline: true },
-                        { name: "📅 Créée",  value: `<t:${keyData.createdAt}:D>`,                            inline: true }
+                        { name: "🔑 Key",     value: `\`${key.slice(0, 12)}...\``,                        inline: false },
+                        { name: "⏱️ Expires", value: expiryStr,                                           inline: true },
+                        { name: "📌 Status",  value: expired ? "⛔ Expired" : "✅ Active",               inline: true },
+                        { name: "🖥️ HWID",   value: keyData.hwid ? "🔒 Locked" : "🔓 Not locked",      inline: true },
+                        { name: "📅 Created", value: `<t:${keyData.createdAt}:D>`,                        inline: true }
                     )
                     .setColor(expired ? RED : GREEN).setFooter({ text: "SMVLL HUB • HS CORP" }).setTimestamp()
                 ]
@@ -560,7 +561,7 @@ async function handleBuyerAction(interaction, action) {
         }
     } catch (err) {
         console.error("handleBuyerAction error:", err.message);
-        interaction.editReply({ embeds: [new EmbedBuilder().setDescription(`❌ Erreur : \`${err.message}\``).setColor(RED)] });
+        interaction.editReply({ embeds: [new EmbedBuilder().setDescription(`❌ Error: \`${err.message}\``).setColor(RED)] });
     }
 }
 
@@ -1749,9 +1750,9 @@ client.on('interactionCreate', async interaction => {
             try {
                 await target.send({
                     embeds: [new EmbedBuilder()
-                        .setTitle("🎉 Accès accordé — SMVLL HUB")
-                        .setDescription(`Tu as reçu une clé d'accès !\nClique sur **Obtenir mon script** dans le panel du serveur ou fais \`/get-script\`.`)
-                        .addFields({ name: "⏱️ Expire", value: expiryStr, inline: true })
+                        .setTitle("🎉 Access Granted — SMVLL HUB V2")
+                        .setDescription(`You received an access key!\nClick **Get Script** in the server panel or use \`/get-script\`.`)
+                        .addFields({ name: "⏱️ Expires", value: expiryStr, inline: true })
                         .setColor(GREEN)
                         .setFooter({ text: "SMVLL HUB • HS CORP" })
                         .setTimestamp()
@@ -1761,11 +1762,11 @@ client.on('interactionCreate', async interaction => {
 
             await interaction.editReply({
                 embeds: [new EmbedBuilder()
-                    .setTitle("✅ Clé créée")
+                    .setTitle("✅ Key Created")
                     .addFields(
-                        { name: "👤 Discord", value: target.tag,    inline: true },
-                        { name: "⏱️ Expire", value: expiryStr,     inline: true },
-                        { name: "🔑 Clé",     value: `\`${key}\``, inline: false }
+                        { name: "👤 Discord",  value: target.tag,    inline: true },
+                        { name: "⏱️ Expires", value: expiryStr,     inline: true },
+                        { name: "🔑 Key",      value: `\`${key}\``, inline: false }
                     )
                     .setColor(GREEN)
                     .setFooter({ text: "SMVLL HUB • HS CORP" })
@@ -1773,10 +1774,10 @@ client.on('interactionCreate', async interaction => {
                 ]
             });
 
-            sendLog("💰 Nouvelle clé créée", [
+            sendLog("💰 New key created", [
                 { name: "👤 Discord", value: `${target.tag} (${target.id})`, inline: true },
-                { name: "⏱️ Expire", value: expiryStr,                       inline: true },
-                { name: "👮 Par",     value: interaction.user.tag,            inline: true }
+                { name: "⏱️ Expires", value: expiryStr,                      inline: true },
+                { name: "👮 By",      value: interaction.user.tag,            inline: true }
             ], GREEN);
         }
 
@@ -1786,7 +1787,7 @@ client.on('interactionCreate', async interaction => {
                 if (!member || !member.roles.cache.has(BUYER_ROLE_ID)) {
                     return interaction.editReply({
                         embeds: [new EmbedBuilder()
-                            .setDescription("⛔ Tu n'as pas le rôle **Buyer** requis.")
+                            .setDescription("⛔ You don't have the required **Buyer** role.")
                             .setColor(RED)]
                     });
                 }
@@ -1798,7 +1799,7 @@ client.on('interactionCreate', async interaction => {
             if (!entry) {
                 return interaction.editReply({
                     embeds: [new EmbedBuilder()
-                        .setDescription("❌ Aucune clé associée à ton compte. Contacte le support.")
+                        .setDescription("❌ No key linked to your account. Contact support.")
                         .setColor(RED)]
                 });
             }
@@ -1809,7 +1810,7 @@ client.on('interactionCreate', async interaction => {
             if (keyData.expiry && keyData.expiry < now) {
                 return interaction.editReply({
                     embeds: [new EmbedBuilder()
-                        .setDescription("⛔ Ta clé a **expiré**. Contacte le support pour renouveler.")
+                        .setDescription("⛔ Your key has **expired**. Contact support to renew.")
                         .setColor(RED)]
                 });
             }
@@ -1819,14 +1820,15 @@ client.on('interactionCreate', async interaction => {
 
             try {
                 await interaction.user.send({
+                    content: `\`\`\`lua\n${loadstring}\n\`\`\``,
                     embeds: [new EmbedBuilder()
-                        .setTitle("🚀 SMVLL HUB — Ton Script")
-                        .setDescription(`**Mets ce code dans ton exécuteur Roblox :**\n\`\`\`lua\n${loadstring}\n\`\`\``)
+                        .setTitle("🚀 SMVLL HUB V2 — Your Script")
+                        .setDescription("Paste the code above into your Roblox executor.")
                         .addFields(
-                            { name: "🔑 Ta clé",  value: `\`${key}\``,                                                inline: false },
-                            { name: "⏱️ Expire", value: keyData.expiry ? `<t:${keyData.expiry}:R>` : "♾️ Lifetime", inline: true },
-                            { name: "🖥️ HWID",   value: keyData.hwid ? "🔒 Verrouillé" : "🔓 Non verrouillé",      inline: true },
-                            { name: "💬 Support", value: "Pour tout problème, crée un ticket dans le serveur.",      inline: false }
+                            { name: "🔑 Your Key", value: `\`${key}\``,                                                inline: false },
+                            { name: "⏱️ Expires",  value: keyData.expiry ? `<t:${keyData.expiry}:R>` : "♾️ Lifetime", inline: true },
+                            { name: "🖥️ HWID",    value: keyData.hwid ? "🔒 Locked" : "🔓 Not locked",               inline: true },
+                            { name: "💬 Support",  value: "For any issue, open a ticket in the server.",               inline: false }
                         )
                         .setColor(GREEN)
                         .setFooter({ text: "SMVLL HUB • HS CORP" })
@@ -1836,18 +1838,18 @@ client.on('interactionCreate', async interaction => {
 
                 await interaction.editReply({
                     embeds: [new EmbedBuilder()
-                        .setDescription("✅ Ton script et ta clé ont été envoyés en DM !")
+                        .setDescription("✅ Your script and key have been sent to your DMs!")
                         .setColor(GREEN)]
                 });
 
-                sendLog("📤 Script envoyé (get-script)", [
+                sendLog("📤 Script sent (get-script)", [
                     { name: "👤 Discord", value: interaction.user.tag, inline: true }
                 ], BLUE);
 
             } catch {
                 await interaction.editReply({
                     embeds: [new EmbedBuilder()
-                        .setDescription("❌ Impossible d'envoyer le DM. Vérifie tes paramètres Discord.")
+                        .setDescription("❌ Could not send DM. Check your Discord privacy settings.")
                         .setColor(RED)]
                 });
             }
@@ -1860,7 +1862,7 @@ client.on('interactionCreate', async interaction => {
             if (!entry) {
                 return interaction.editReply({
                     embeds: [new EmbedBuilder()
-                        .setDescription("❌ Aucune clé associée à ton compte.")
+                        .setDescription("❌ No key linked to your account.")
                         .setColor(RED)]
                 });
             }
@@ -1869,7 +1871,7 @@ client.on('interactionCreate', async interaction => {
             if (!keyData.hwid) {
                 return interaction.editReply({
                     embeds: [new EmbedBuilder()
-                        .setDescription("⚠️ Ton HWID n'est pas encore verrouillé.")
+                        .setDescription("⚠️ Your HWID is not locked yet.")
                         .setColor(YELLOW)]
                 });
             }
@@ -1880,8 +1882,8 @@ client.on('interactionCreate', async interaction => {
 
             await interaction.editReply({
                 embeds: [new EmbedBuilder()
-                    .setTitle("🔓 HWID réinitialisé")
-                    .setDescription("Ton HWID a été remis à zéro. Il se verrouillera automatiquement à la prochaine exécution du script.")
+                    .setTitle("🔓 HWID Reset")
+                    .setDescription("Your HWID has been cleared. It will lock again on your next script execution.")
                     .setColor(GREEN)
                     .setFooter({ text: "SMVLL HUB • HS CORP" })
                     .setTimestamp()
@@ -1900,7 +1902,7 @@ client.on('interactionCreate', async interaction => {
             if (!entry) {
                 return interaction.editReply({
                     embeds: [new EmbedBuilder()
-                        .setDescription("❌ Aucune clé associée à ton compte.")
+                        .setDescription("❌ No key linked to your account.")
                         .setColor(RED)]
                 });
             }
@@ -1909,18 +1911,18 @@ client.on('interactionCreate', async interaction => {
             const now = Math.floor(Date.now() / 1000);
             const expired = keyData.expiry && keyData.expiry < now;
             const expiryStr = keyData.expiry
-                ? (expired ? "⛔ Expirée" : `<t:${keyData.expiry}:R>`)
+                ? (expired ? "⛔ Expired" : `<t:${keyData.expiry}:R>`)
                 : "♾️ Lifetime";
 
             await interaction.editReply({
                 embeds: [new EmbedBuilder()
-                    .setTitle("📊 Mes stats — SMVLL HUB")
+                    .setTitle("📊 My Stats — SMVLL HUB V2")
                     .addFields(
-                        { name: "🔑 Clé",    value: `\`${key.slice(0, 12)}...\``,                            inline: false },
-                        { name: "⏱️ Expire", value: expiryStr,                                               inline: true },
-                        { name: "📌 Statut", value: expired ? "⛔ Expirée" : "✅ Active",                   inline: true },
-                        { name: "🖥️ HWID",  value: keyData.hwid ? "🔒 Verrouillé" : "🔓 Non verrouillé", inline: true },
-                        { name: "📅 Créée",  value: `<t:${keyData.createdAt}:D>`,                           inline: true }
+                        { name: "🔑 Key",     value: `\`${key.slice(0, 12)}...\``,                        inline: false },
+                        { name: "⏱️ Expires", value: expiryStr,                                           inline: true },
+                        { name: "📌 Status",  value: expired ? "⛔ Expired" : "✅ Active",               inline: true },
+                        { name: "🖥️ HWID",   value: keyData.hwid ? "🔒 Locked" : "🔓 Not locked",      inline: true },
+                        { name: "📅 Created", value: `<t:${keyData.createdAt}:D>`,                        inline: true }
                     )
                     .setColor(expired ? RED : GREEN)
                     .setFooter({ text: "SMVLL HUB • HS CORP" })
@@ -1935,7 +1937,7 @@ client.on('interactionCreate', async interaction => {
 
             if (entries.length === 0) {
                 return interaction.editReply({
-                    embeds: [new EmbedBuilder().setDescription("🔑 Aucune clé enregistrée.").setColor(YELLOW)]
+                    embeds: [new EmbedBuilder().setDescription("🔑 No keys registered.").setColor(YELLOW)]
                 });
             }
 
@@ -1962,36 +1964,39 @@ client.on('interactionCreate', async interaction => {
             const row = new ActionRowBuilder().addComponents(
                 new ButtonBuilder()
                     .setCustomId('btn_get_script')
-                    .setLabel('🔑 Obtenir mon script')
-                    .setStyle(ButtonStyle.Primary),
+                    .setLabel('Get Script')
+                    .setStyle(ButtonStyle.Success),
                 new ButtonBuilder()
                     .setCustomId('btn_reset_hwid')
-                    .setLabel('🔄 Reset HWID')
+                    .setLabel('Reset HWID')
                     .setStyle(ButtonStyle.Secondary),
                 new ButtonBuilder()
                     .setCustomId('btn_my_stats')
-                    .setLabel('📊 Mes stats')
+                    .setLabel('My Stats')
                     .setStyle(ButtonStyle.Secondary),
             );
 
             await interaction.channel.send({
                 embeds: [new EmbedBuilder()
-                    .setTitle("🚀 SMVLL HUB — Espace Buyer")
-                    .setDescription("Bienvenue ! Utilise les boutons ci-dessous pour accéder à ton espace.")
-                    .addFields(
-                        { name: "🔑 Obtenir mon script", value: "Reçois ta clé d'accès + le loadstring en DM", inline: false },
-                        { name: "🔄 Reset HWID",         value: "Réinitialise ton HWID si tu as changé de PC",  inline: false },
-                        { name: "📊 Mes stats",           value: "Vérifie le statut et l'expiration de ta clé", inline: false }
+                    .setTitle("SMVLL HUB V2")
+                    .setThumbnail(client.user.displayAvatarURL({ size: 256 }))
+                    .setDescription(
+                        "Welcome to **SMVLL HUB V2**!\n\n" +
+                        "**How to get your script:**\n" +
+                        "→ Click **Get Script** — your key & loadstring will be sent in DM\n" +
+                        "→ Paste the code in your Roblox executor\n\n" +
+                        "**Changed PC?** Click **Reset HWID** to unlock your key.\n" +
+                        "**Check your key status?** Click **My Stats**.\n\n" +
+                        "*Need help? Open a support ticket.*"
                     )
-                    .setColor(BLUE)
+                    .setColor(GREEN)
                     .setFooter({ text: "SMVLL HUB • HS CORP" })
-                    .setTimestamp()
                 ],
                 components: [row]
             });
 
             await interaction.editReply({
-                embeds: [new EmbedBuilder().setDescription("✅ Panel envoyé.").setColor(GREEN)]
+                embeds: [new EmbedBuilder().setDescription("✅ Panel posted.").setColor(GREEN)]
             });
         }
 
