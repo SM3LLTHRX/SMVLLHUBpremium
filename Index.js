@@ -447,6 +447,16 @@ client.once('ready', async () => {
     const rest = new REST({ version: '10' }).setToken(TOKEN);
     await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: commands });
     console.log("✅ Commandes enregistrées");
+
+    // Set bot avatar if BOT_AVATAR_URL is configured
+    if (process.env.BOT_AVATAR_URL) {
+        try {
+            await client.user.setAvatar(process.env.BOT_AVATAR_URL);
+            console.log("✅ Avatar mis à jour");
+        } catch (e) {
+            console.warn("⚠️ Avatar update failed (rate limited or invalid URL):", e.message);
+        }
+    }
     try {
         const { content } = await getFile();
         const val = getConfigValue(content, 'free4all');
