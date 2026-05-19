@@ -419,7 +419,8 @@ const commands = [
 
     new SlashCommandBuilder()
         .setName('panel')
-        .setDescription('Envoyer le panel buyer dans ce salon'),
+        .setDescription('Post the buyer panel in this channel')
+        .addStringOption(o => o.setName('image').setDescription('Custom thumbnail URL (optional)').setRequired(false)),
 
     new SlashCommandBuilder()
         .setName('get-script')
@@ -509,7 +510,7 @@ async function handleBuyerAction(interaction, action) {
                     content: `\`\`\`lua\n${loadstring}\n\`\`\``,
                     embeds: [new EmbedBuilder()
                         .setTitle("🚀 SMVLL HUB V2 — Your Script")
-                        .setDescription("Paste the code above into your Roblox executor.")
+                        .setDescription("📋 Paste the code above into your Roblox executor.")
                         .addFields(
                             { name: "🔑 Your Key", value: `\`${key}\``,                                                inline: false },
                             { name: "⏱️ Expires",  value: keyData.expiry ? `<t:${keyData.expiry}:R>` : "♾️ Lifetime", inline: true },
@@ -1967,33 +1968,35 @@ client.on('interactionCreate', async interaction => {
                 return interaction.editReply({ embeds: [new EmbedBuilder().setDescription("❌ Could not access this channel.").setColor(RED)] });
             }
 
+            const imageUrl = interaction.options.getString('image') || client.user.displayAvatarURL({ size: 256 });
+
             const row = new ActionRowBuilder().addComponents(
                 new ButtonBuilder()
                     .setCustomId('btn_get_script')
-                    .setLabel('Get Script')
+                    .setLabel('🔑 Get Script')
                     .setStyle(ButtonStyle.Success),
                 new ButtonBuilder()
                     .setCustomId('btn_reset_hwid')
-                    .setLabel('Reset HWID')
+                    .setLabel('🔄 Reset HWID')
                     .setStyle(ButtonStyle.Secondary),
                 new ButtonBuilder()
                     .setCustomId('btn_my_stats')
-                    .setLabel('My Stats')
+                    .setLabel('📊 My Stats')
                     .setStyle(ButtonStyle.Secondary),
             );
 
             await channel.send({
                 embeds: [new EmbedBuilder()
-                    .setTitle("SMVLL HUB V2")
-                    .setThumbnail(client.user.displayAvatarURL({ size: 256 }))
+                    .setTitle("🟢 SMVLL HUB V2")
+                    .setThumbnail(imageUrl)
                     .setDescription(
                         "Welcome to **SMVLL HUB V2**!\n\n" +
-                        "**How to get your script:**\n" +
-                        "→ Click **Get Script** — your key & loadstring will be sent in DM\n" +
+                        "**📥 How to get your script:**\n" +
+                        "→ Click **🔑 Get Script** — your key & loadstring will be sent in DM\n" +
                         "→ Paste the code in your Roblox executor\n\n" +
-                        "**Changed PC?** Click **Reset HWID** to unlock your key.\n" +
-                        "**Check your key status?** Click **My Stats**.\n\n" +
-                        "*Need help? Open a support ticket.*"
+                        "**🖥️ Changed PC?** Click **🔄 Reset HWID** to unlock your key.\n" +
+                        "**📊 Check your key status?** Click **My Stats**.\n\n" +
+                        "💬 *Need help? Open a support ticket.*"
                     )
                     .setColor(GREEN)
                     .setFooter({ text: "SMVLL HUB • HS CORP" })
