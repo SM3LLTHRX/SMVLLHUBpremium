@@ -2164,36 +2164,80 @@ client.on('guildMemberAdd', async member => {
 
 client.login(TOKEN);
 
-// ─── Keep-alive (auto self-ping, no UptimeRobot needed) ──────────────────────
+// ─── HTTP Server — Keep-alive + /verify + /script ────────────────────────────
 const PORT = process.env.PORT || 3000;
-http.createServer((req, res) => {
-    if (req.method === 'POST' && req.url === '/webhook/panda') {
-        let body = '';
-        req.on('data', chunk => { body += chunk; });
-        req.on('end', () => {
-            try {
-                const data = JSON.parse(body);
-                const robloxUser = data.robloxUsername || data.username || data.user;
-                if (robloxUser) {
-                    sendLog("🎮 Script exécuté", [
-                        { name: "🎮 Roblox", value: robloxUser, inline: true }
-                    ], BLUE);
-                }
-            } catch {}
+http.createServer(async (req, res) => {
+    const parsedUrl = new URL(req.url, `http://localhost`);
+
+    if (req.method === 'GET' && parsedUrl.pathname === '/verify') {
+        const key  = parsedUrl.searchParams.get('key')  || '';
+        const hwid = parsedUrl.searchParams.get('hwid') || '';
+        res.setHeader('Content-Type', 'application/json');
+        try {
+            const { data: keys, sha } = await getKeysData();
+            const keyData = keys[key];
+
+            if (!keyData) {
+                res.writeHead(200);
+                return res.end(JSON.stringify({ valid: false, reason: "Key not found" }));
+            }
+
+            const now = Math.floor(Date.now() / 1000);
+            if (keyData.expiry && keyData.expiry < now) {
+                res.writeHead(200);
+                return res.end(JSON.stringify({ valid: false, reason: "Key expired" }));
+            }
+
+            if (!keyData.hwid) {
+                keyData.hwid = hwid;
+                keys[key] = keyData;
+                await saveKeysData(keys, sha);
+                res.writeHead(200);
+                return res.end(JSON.stringify({ valid: true }));
+            }
+
+            if (keyData.hwid === hwid) {
+                res.writeHead(200);
+                return res.end(JSON.stringify({ valid: true }));
+            }
+
             res.writeHead(200);
-            res.end('ok');
-        });
-        return;
+            return res.end(JSON.stringify({ valid: false, reason: "Invalid HWID. Use /reset-hwid in the Discord server." }));
+        } catch (e) {
+            console.error("verify error:", e.message);
+            res.writeHead(500);
+            return res.end(JSON.stringify({ valid: false, reason: "Server error" }));
+        }
     }
+
+    if (req.method === 'GET' && parsedUrl.pathname === '/script') {
+        const scriptUrl = process.env.SCRIPT_LOADSTRING_URL || '';
+        const botUrl    = (process.env.RENDER_EXTERNAL_URL || '').replace(/\/$/, '');
+        const lua = [
+            `local BOT_URL = "${botUrl}"`,
+            `local HttpService = game:GetService("HttpService")`,
+            `local hwid = tostring(game:GetService("RbxAnalyticsService"):GetClientId())`,
+            `local ok, result = pcall(function()`,
+            `    return game:HttpGet(BOT_URL .. "/verify?key=" .. tostring(SCRIPT_KEY or "") .. "&hwid=" .. hwid)`,
+            `end)`,
+            `if not ok then error("[SMVLL HUB] Cannot connect to verification server.") end`,
+            `local data = HttpService:JSONDecode(result)`,
+            `if not data or not data.valid then`,
+            `    error("[SMVLL HUB] Access denied -- " .. (data and data.reason or "Invalid key"))`,
+            `end`,
+            scriptUrl ? `loadstring(game:HttpGet("${scriptUrl}"))()` : `-- Set SCRIPT_LOADSTRING_URL in environment variables`,
+        ].join('\n');
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        return res.end(lua);
+    }
+
     res.writeHead(200);
     res.end("SMVLL HUB — online");
 }).listen(PORT, () => {
-    console.log(`✅ Keep-alive server sur le port ${PORT}`);
+    console.log(`✅ HTTP server on port ${PORT}`);
     const selfUrl = process.env.RENDER_EXTERNAL_URL;
     if (selfUrl) {
-        setInterval(() => {
-            axios.get(selfUrl).catch(() => {});
-        }, 4 * 60 * 1000);
-        console.log(`✅ Auto self-ping actif → ${selfUrl}`);
+        setInterval(() => axios.get(selfUrl).catch(() => {}), 4 * 60 * 1000);
+        console.log(`✅ Self-ping active → ${selfUrl}`);
     }
 });
