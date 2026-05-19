@@ -1,6 +1,7 @@
 const {
     Client, GatewayIntentBits, EmbedBuilder, AttachmentBuilder,
-    REST, Routes, SlashCommandBuilder
+    REST, Routes, SlashCommandBuilder,
+    ButtonBuilder, ButtonStyle, ActionRowBuilder
 } = require('discord.js');
 const axios = require('axios');
 const ms    = require('ms');
@@ -414,8 +415,11 @@ const commands = [
         .setName('sell')
         .setDescription('Créer une clé d\'accès pour un buyer')
         .addUserOption(o => o.setName('user').setDescription('Membre Discord').setRequired(true))
-        .addStringOption(o => o.setName('roblox').setDescription('Nom Roblox du buyer').setRequired(true))
         .addStringOption(o => o.setName('time').setDescription('Durée (ex: 5d, 1w, 1mo, lifetime)').setRequired(true)),
+
+    new SlashCommandBuilder()
+        .setName('panel')
+        .setDescription('Envoyer le panel buyer dans ce salon'),
 
     new SlashCommandBuilder()
         .setName('get-script')
@@ -458,11 +462,114 @@ client.once('ready', async () => {
     } catch {}
     setInterval(checkExpiringSoon, 60 * 60 * 1000);
     checkExpiringSoon();
+
+    // Startup log
+    setTimeout(async () => {
+        try {
+            const { content } = await getFile();
+            const wlCount = parseUsers(content).filter(l => !isExpired(l)).length;
+            const { data: keys } = await getKeysData();
+            const keyCount = Object.keys(keys).length;
+            const mem = (process.memoryUsage().heapUsed / 1024 / 1024).toFixed(1);
+            sendLog("🟢 Bot démarré", [
+                { name: "🤖 Bot",       value: client.user.tag,               inline: true },
+                { name: "📡 Ping",      value: `${client.ws.ping}ms`,         inline: true },
+                { name: "🏠 Serveur",   value: `${client.guilds.cache.size} guild(s)`, inline: true },
+                { name: "📋 WL actifs", value: `${wlCount}`,                  inline: true },
+                { name: "🔑 Clés",      value: `${keyCount}`,                 inline: true },
+                { name: "🧠 Mémoire",   value: `${mem} MB`,                   inline: true },
+                { name: "📦 Node.js",   value: process.version,               inline: true },
+            ], GREEN);
+        } catch {}
+    }, 3000);
 });
 
 // ─── Interactions ───────────────────────────────────────────────────────
 
+async function handleBuyerAction(interaction, action) {
+    await interaction.deferReply({ ephemeral: true });
+    try {
+        if (action === 'get-script') {
+            if (BUYER_ROLE_ID) {
+                const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+                if (!member || !member.roles.cache.has(BUYER_ROLE_ID)) {
+                    return interaction.editReply({ embeds: [new EmbedBuilder().setDescription("⛔ Tu n'as pas le rôle **Buyer** requis.").setColor(RED)] });
+                }
+            }
+            const { data: keys } = await getKeysData();
+            const entry = findKeyByDiscordId(keys, interaction.user.id);
+            if (!entry) return interaction.editReply({ embeds: [new EmbedBuilder().setDescription("❌ Aucune clé associée à ton compte. Contacte le support.").setColor(RED)] });
+            const [key, keyData] = entry;
+            const now = Math.floor(Date.now() / 1000);
+            if (keyData.expiry && keyData.expiry < now) return interaction.editReply({ embeds: [new EmbedBuilder().setDescription("⛔ Ta clé a **expiré**. Contacte le support.").setColor(RED)] });
+            const scriptUrl  = process.env.SCRIPT_LOADSTRING_URL || '';
+            const loadstring = `SCRIPT_KEY = "${key}"\nloadstring(game:HttpGet("${scriptUrl || 'CONFIGURE_SCRIPT_LOADSTRING_URL'}"))()`;
+            try {
+                await interaction.user.send({
+                    embeds: [new EmbedBuilder()
+                        .setTitle("🚀 SMVLL HUB — Ton Script")
+                        .setDescription(`**Mets ce code dans ton exécuteur Roblox :**\n\`\`\`lua\n${loadstring}\n\`\`\``)
+                        .addFields(
+                            { name: "🔑 Ta clé",  value: `\`${key}\``,                                                inline: false },
+                            { name: "⏱️ Expire", value: keyData.expiry ? `<t:${keyData.expiry}:R>` : "♾️ Lifetime", inline: true },
+                            { name: "🖥️ HWID",   value: keyData.hwid ? "🔒 Verrouillé" : "🔓 Non verrouillé",      inline: true },
+                            { name: "💬 Support", value: "Pour tout problème, crée un ticket dans le serveur.",      inline: false }
+                        )
+                        .setColor(GREEN).setFooter({ text: "SMVLL HUB • HS CORP" }).setTimestamp()
+                    ]
+                });
+                await interaction.editReply({ embeds: [new EmbedBuilder().setDescription("✅ Ton script et ta clé ont été envoyés en DM !").setColor(GREEN)] });
+                sendLog("📤 Script envoyé (panel)", [{ name: "👤 Discord", value: interaction.user.tag, inline: true }], BLUE);
+            } catch {
+                await interaction.editReply({ embeds: [new EmbedBuilder().setDescription("❌ Impossible d'envoyer le DM. Vérifie tes paramètres Discord.").setColor(RED)] });
+            }
+
+        } else if (action === 'reset-hwid') {
+            const { data: keys, sha } = await getKeysData();
+            const entry = findKeyByDiscordId(keys, interaction.user.id);
+            if (!entry) return interaction.editReply({ embeds: [new EmbedBuilder().setDescription("❌ Aucune clé associée à ton compte.").setColor(RED)] });
+            const [key, keyData] = entry;
+            if (!keyData.hwid) return interaction.editReply({ embeds: [new EmbedBuilder().setDescription("⚠️ Ton HWID n'est pas encore verrouillé.").setColor(YELLOW)] });
+            keyData.hwid = null;
+            keys[key] = keyData;
+            await saveKeysData(keys, sha);
+            await interaction.editReply({ embeds: [new EmbedBuilder().setTitle("🔓 HWID réinitialisé").setDescription("Ton HWID a été remis à zéro. Il se verrouillera à la prochaine exécution.").setColor(GREEN).setFooter({ text: "SMVLL HUB • HS CORP" }).setTimestamp()] });
+            sendLog("🔓 HWID reset (panel)", [{ name: "👤 Discord", value: interaction.user.tag, inline: true }], ORANGE);
+
+        } else if (action === 'my-stats') {
+            const { data: keys } = await getKeysData();
+            const entry = findKeyByDiscordId(keys, interaction.user.id);
+            if (!entry) return interaction.editReply({ embeds: [new EmbedBuilder().setDescription("❌ Aucune clé associée à ton compte.").setColor(RED)] });
+            const [key, keyData] = entry;
+            const now = Math.floor(Date.now() / 1000);
+            const expired = keyData.expiry && keyData.expiry < now;
+            const expiryStr = keyData.expiry ? (expired ? "⛔ Expirée" : `<t:${keyData.expiry}:R>`) : "♾️ Lifetime";
+            await interaction.editReply({
+                embeds: [new EmbedBuilder()
+                    .setTitle("📊 Mes stats — SMVLL HUB")
+                    .addFields(
+                        { name: "🔑 Clé",    value: `\`${key.slice(0, 12)}...\``,                            inline: false },
+                        { name: "⏱️ Expire", value: expiryStr,                                               inline: true },
+                        { name: "📌 Statut", value: expired ? "⛔ Expirée" : "✅ Active",                    inline: true },
+                        { name: "🖥️ HWID",  value: keyData.hwid ? "🔒 Verrouillé" : "🔓 Non verrouillé",  inline: true },
+                        { name: "📅 Créée",  value: `<t:${keyData.createdAt}:D>`,                            inline: true }
+                    )
+                    .setColor(expired ? RED : GREEN).setFooter({ text: "SMVLL HUB • HS CORP" }).setTimestamp()
+                ]
+            });
+        }
+    } catch (err) {
+        console.error("handleBuyerAction error:", err.message);
+        interaction.editReply({ embeds: [new EmbedBuilder().setDescription(`❌ Erreur : \`${err.message}\``).setColor(RED)] });
+    }
+}
+
 client.on('interactionCreate', async interaction => {
+    if (interaction.isButton()) {
+        const map = { btn_get_script: 'get-script', btn_reset_hwid: 'reset-hwid', btn_my_stats: 'my-stats' };
+        if (map[interaction.customId]) return handleBuyerAction(interaction, map[interaction.customId]);
+        return;
+    }
     if (!interaction.isChatInputCommand()) return;
 
     const cmd = interaction.commandName;
@@ -1605,9 +1712,8 @@ client.on('interactionCreate', async interaction => {
         }
 
         else if (cmd === 'sell') {
-            const target     = interaction.options.getUser('user');
-            const robloxUser = interaction.options.getString('roblox');
-            const time       = interaction.options.getString('time');
+            const target = interaction.options.getUser('user');
+            const time   = interaction.options.getString('time');
 
             if (time !== 'lifetime' && !parseDuration(time)) {
                 return interaction.editReply({
@@ -1628,7 +1734,6 @@ client.on('interactionCreate', async interaction => {
             keys[key] = {
                 discordId:  target.id,
                 discordTag: target.tag,
-                roblox:     robloxUser,
                 expiry,
                 hwid:       null,
                 createdAt:  now
@@ -1645,11 +1750,8 @@ client.on('interactionCreate', async interaction => {
                 await target.send({
                     embeds: [new EmbedBuilder()
                         .setTitle("🎉 Accès accordé — SMVLL HUB")
-                        .setDescription(`Tu as reçu une clé d'accès !\nUtilise \`/get-script\` dans le serveur pour obtenir ton script + ta clé.`)
-                        .addFields(
-                            { name: "🎮 Roblox",  value: robloxUser, inline: true },
-                            { name: "⏱️ Expire",  value: expiryStr,  inline: true }
-                        )
+                        .setDescription(`Tu as reçu une clé d'accès !\nClique sur **Obtenir mon script** dans le panel du serveur ou fais \`/get-script\`.`)
+                        .addFields({ name: "⏱️ Expire", value: expiryStr, inline: true })
                         .setColor(GREEN)
                         .setFooter({ text: "SMVLL HUB • HS CORP" })
                         .setTimestamp()
@@ -1662,7 +1764,6 @@ client.on('interactionCreate', async interaction => {
                     .setTitle("✅ Clé créée")
                     .addFields(
                         { name: "👤 Discord", value: target.tag,    inline: true },
-                        { name: "🎮 Roblox",  value: robloxUser,   inline: true },
                         { name: "⏱️ Expire", value: expiryStr,     inline: true },
                         { name: "🔑 Clé",     value: `\`${key}\``, inline: false }
                     )
@@ -1674,9 +1775,8 @@ client.on('interactionCreate', async interaction => {
 
             sendLog("💰 Nouvelle clé créée", [
                 { name: "👤 Discord", value: `${target.tag} (${target.id})`, inline: true },
-                { name: "🎮 Roblox",  value: robloxUser,                      inline: true },
-                { name: "⏱️ Expire", value: expiryStr,                        inline: true },
-                { name: "👮 Par",     value: interaction.user.tag,             inline: true }
+                { name: "⏱️ Expire", value: expiryStr,                       inline: true },
+                { name: "👮 Par",     value: interaction.user.tag,            inline: true }
             ], GREEN);
         }
 
@@ -1724,7 +1824,6 @@ client.on('interactionCreate', async interaction => {
                         .setDescription(`**Mets ce code dans ton exécuteur Roblox :**\n\`\`\`lua\n${loadstring}\n\`\`\``)
                         .addFields(
                             { name: "🔑 Ta clé",  value: `\`${key}\``,                                                inline: false },
-                            { name: "🎮 Roblox",  value: keyData.roblox,                                             inline: true },
                             { name: "⏱️ Expire", value: keyData.expiry ? `<t:${keyData.expiry}:R>` : "♾️ Lifetime", inline: true },
                             { name: "🖥️ HWID",   value: keyData.hwid ? "🔒 Verrouillé" : "🔓 Non verrouillé",      inline: true },
                             { name: "💬 Support", value: "Pour tout problème, crée un ticket dans le serveur.",      inline: false }
@@ -1742,8 +1841,7 @@ client.on('interactionCreate', async interaction => {
                 });
 
                 sendLog("📤 Script envoyé (get-script)", [
-                    { name: "👤 Discord", value: interaction.user.tag, inline: true },
-                    { name: "🎮 Roblox",  value: keyData.roblox,       inline: true }
+                    { name: "👤 Discord", value: interaction.user.tag, inline: true }
                 ], BLUE);
 
             } catch {
@@ -1791,8 +1889,7 @@ client.on('interactionCreate', async interaction => {
             });
 
             sendLog("🔓 HWID reset", [
-                { name: "👤 Discord", value: interaction.user.tag, inline: true },
-                { name: "🎮 Roblox",  value: keyData.roblox,       inline: true }
+                { name: "👤 Discord", value: interaction.user.tag, inline: true }
             ], ORANGE);
         }
 
@@ -1819,12 +1916,11 @@ client.on('interactionCreate', async interaction => {
                 embeds: [new EmbedBuilder()
                     .setTitle("📊 Mes stats — SMVLL HUB")
                     .addFields(
-                        { name: "🔑 Clé",    value: `\`${key.slice(0, 12)}...\``,                             inline: false },
-                        { name: "🎮 Roblox", value: keyData.roblox,                                           inline: true },
-                        { name: "⏱️ Expire", value: expiryStr,                                                inline: true },
-                        { name: "📌 Statut", value: expired ? "⛔ Expirée" : "✅ Active",                    inline: true },
-                        { name: "🖥️ HWID",  value: keyData.hwid ? "🔒 Verrouillé" : "🔓 Non verrouillé",  inline: true },
-                        { name: "📅 Créée",  value: `<t:${keyData.createdAt}:D>`,                            inline: true }
+                        { name: "🔑 Clé",    value: `\`${key.slice(0, 12)}...\``,                            inline: false },
+                        { name: "⏱️ Expire", value: expiryStr,                                               inline: true },
+                        { name: "📌 Statut", value: expired ? "⛔ Expirée" : "✅ Active",                   inline: true },
+                        { name: "🖥️ HWID",  value: keyData.hwid ? "🔒 Verrouillé" : "🔓 Non verrouillé", inline: true },
+                        { name: "📅 Créée",  value: `<t:${keyData.createdAt}:D>`,                           inline: true }
                     )
                     .setColor(expired ? RED : GREEN)
                     .setFooter({ text: "SMVLL HUB • HS CORP" })
@@ -1848,7 +1944,7 @@ client.on('interactionCreate', async interaction => {
                 const expired = d.expiry && d.expiry < now;
                 const status  = expired ? "⛔" : "✅";
                 const exp     = d.expiry ? `<t:${d.expiry}:d>` : "∞";
-                return `${status} <@${d.discordId}> — **${d.roblox}** — ${exp} — \`${k.slice(0, 12)}...\``;
+                return `${status} <@${d.discordId}> — ${exp} — \`${k.slice(0, 12)}...\``;
             }).join("\n");
 
             await interaction.editReply({
@@ -1859,6 +1955,43 @@ client.on('interactionCreate', async interaction => {
                     .setFooter({ text: "SMVLL HUB • HS CORP" })
                     .setTimestamp()
                 ]
+            });
+        }
+
+        else if (cmd === 'panel') {
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId('btn_get_script')
+                    .setLabel('🔑 Obtenir mon script')
+                    .setStyle(ButtonStyle.Primary),
+                new ButtonBuilder()
+                    .setCustomId('btn_reset_hwid')
+                    .setLabel('🔄 Reset HWID')
+                    .setStyle(ButtonStyle.Secondary),
+                new ButtonBuilder()
+                    .setCustomId('btn_my_stats')
+                    .setLabel('📊 Mes stats')
+                    .setStyle(ButtonStyle.Secondary),
+            );
+
+            await interaction.channel.send({
+                embeds: [new EmbedBuilder()
+                    .setTitle("🚀 SMVLL HUB — Espace Buyer")
+                    .setDescription("Bienvenue ! Utilise les boutons ci-dessous pour accéder à ton espace.")
+                    .addFields(
+                        { name: "🔑 Obtenir mon script", value: "Reçois ta clé d'accès + le loadstring en DM", inline: false },
+                        { name: "🔄 Reset HWID",         value: "Réinitialise ton HWID si tu as changé de PC",  inline: false },
+                        { name: "📊 Mes stats",           value: "Vérifie le statut et l'expiration de ta clé", inline: false }
+                    )
+                    .setColor(BLUE)
+                    .setFooter({ text: "SMVLL HUB • HS CORP" })
+                    .setTimestamp()
+                ],
+                components: [row]
+            });
+
+            await interaction.editReply({
+                embeds: [new EmbedBuilder().setDescription("✅ Panel envoyé.").setColor(GREEN)]
             });
         }
 
