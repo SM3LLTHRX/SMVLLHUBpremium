@@ -1961,6 +1961,12 @@ client.on('interactionCreate', async interaction => {
         }
 
         else if (cmd === 'panel') {
+            console.log(`[panel] triggered by ${interaction.user.tag} in channel ${interaction.channelId}`);
+            const channel = interaction.channel ?? await interaction.client.channels.fetch(interaction.channelId).catch(() => null);
+            if (!channel) {
+                return interaction.editReply({ embeds: [new EmbedBuilder().setDescription("❌ Could not access this channel.").setColor(RED)] });
+            }
+
             const row = new ActionRowBuilder().addComponents(
                 new ButtonBuilder()
                     .setCustomId('btn_get_script')
@@ -1976,7 +1982,7 @@ client.on('interactionCreate', async interaction => {
                     .setStyle(ButtonStyle.Secondary),
             );
 
-            await interaction.channel.send({
+            await channel.send({
                 embeds: [new EmbedBuilder()
                     .setTitle("SMVLL HUB V2")
                     .setThumbnail(client.user.displayAvatarURL({ size: 256 }))
@@ -1998,15 +2004,16 @@ client.on('interactionCreate', async interaction => {
             await interaction.editReply({
                 embeds: [new EmbedBuilder().setDescription("✅ Panel posted.").setColor(GREEN)]
             });
+            console.log(`[panel] posted successfully in ${interaction.channelId}`);
         }
 
     } catch (err) {
-        console.error(err);
+        console.error(`[${cmd}] ERROR:`, err);
         interaction.editReply({
             embeds: [new EmbedBuilder()
-                .setDescription(`❌ Erreur : \`${err.message}\``)
+                .setDescription(`❌ Error: \`${err.message}\``)
                 .setColor(RED)]
-        });
+        }).catch(() => {});
     }
 });
 
