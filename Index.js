@@ -2002,7 +2002,7 @@ client.on('interactionCreate', async interaction => {
 });
 
 // ─── Automod — Anti-pub ────────────────────────────────────────────────
-const MUTE_DURATION = 24 * 60 * 60 * 1000; // 1 day in ms
+const MUTE_DURATION = 10 * 60 * 1000; // 10 minutes
 
 const AD_PATTERNS = [
     /discord\.gg\/[a-zA-Z0-9]+/i,
@@ -2043,13 +2043,13 @@ client.on('messageCreate', async msg => {
                      : hasChannelMention  ? "Channel mention"
                      : "Advertisement / spam";
 
-        // Timeout 1 day
+        // Timeout 10 min
         const member = msg.guild.members.cache.get(msg.author.id)
                     || await msg.guild.members.fetch(msg.author.id).catch(() => null);
         let mutedStr = "❌ Failed";
         if (member && member.moderatable) {
             await member.timeout(MUTE_DURATION, reason).catch(() => {});
-            mutedStr = "✅ 1 day";
+            mutedStr = "✅ 10 min";
         }
 
         sendLog("🗑️ Message deleted + mute", [
@@ -2063,7 +2063,7 @@ client.on('messageCreate', async msg => {
         const warn = await msg.channel.send({
             embeds: [new EmbedBuilder()
                 .setTitle("⛔ Automod")
-                .setDescription(`<@${msg.author.id}> — **${reason}**\n🔇 Muted for **1 day**.`)
+                .setDescription(`<@${msg.author.id}> — **${reason}**\n🔇 Muted for **10 minutes**.`)
                 .setColor(RED)
                 .setTimestamp()
             ]
