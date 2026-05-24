@@ -2031,11 +2031,15 @@ client.on('interactionCreate', async interaction => {
 });
 
 // ─── Automod — Anti-pub ────────────────────────────────────────────────
+const MUTE_DURATION = 24 * 60 * 60 * 1000; // 1 day in ms
 
 const AD_PATTERNS = [
     /discord\.gg\/[a-zA-Z0-9]+/i,
     /discord\.com\/invite\/[a-zA-Z0-9]+/i,
     /\.gg\/[a-zA-Z0-9]{2,}/i,
+    /\bomg\s*girl\b/i,
+    /@everyone/i,
+    /@here/i,
     /\bin my bio\b/i,
     /\bcheck( my)? bio\b/i,
     /\bdm me\b/i,
@@ -2054,7 +2058,7 @@ client.on('messageCreate', async msg => {
     if (msg.author.bot || !msg.guild) return;
     if (msg.author.id === OWNER_ID) return;
 
-    const isAd             = AD_PATTERNS.some(p => p.test(msg.content));
+    const isAd            = AD_PATTERNS.some(p => p.test(msg.content));
     const hasChannelMention = /<#\d+>/.test(msg.content);
     const hasHeading        = /^#{1,3} /m.test(msg.content);
 
@@ -2063,21 +2067,37 @@ client.on('messageCreate', async msg => {
     try {
         const content = msg.content.slice(0, 300);
         await msg.delete();
-        const reason = hasHeading        ? "Gros texte interdit"
-                     : hasChannelMention ? "Mention de salon"
-                     : "Publicité";
-        sendLog("🗑️ Message supprimé", [
+
+        const reason = hasHeading         ? "Big text forbidden"
+                     : hasChannelMention  ? "Channel mention"
+                     : "Advertisement / spam";
+
+        // Timeout 1 day
+        const member = msg.guild.members.cache.get(msg.author.id)
+                    || await msg.guild.members.fetch(msg.author.id).catch(() => null);
+        let mutedStr = "❌ Failed";
+        if (member && member.moderatable) {
+            await member.timeout(MUTE_DURATION, reason).catch(() => {});
+            mutedStr = "✅ 1 day";
+        }
+
+        sendLog("🗑️ Message deleted + mute", [
             { name: "👤 User",    value: `${msg.author.tag} (${msg.author.id})`, inline: true },
             { name: "📌 Channel", value: `<#${msg.channel.id}>`,                 inline: true },
-            { name: "⚠️ Raison", value: reason,                                  inline: true },
-            { name: "📝 Contenu", value: `\`\`\`${content}\`\`\``,              inline: false }
+            { name: "⚠️ Reason", value: reason,                                  inline: true },
+            { name: "🔇 Mute",   value: mutedStr,                                inline: true },
+            { name: "📝 Content", value: `\`\`\`${content}\`\`\``,              inline: false }
         ], ORANGE);
+
         const warn = await msg.channel.send({
             embeds: [new EmbedBuilder()
-                .setDescription(`⛔ <@${msg.author.id}> — ${reason}.`)
-                .setColor(RED)]
+                .setTitle("⛔ Automod")
+                .setDescription(`<@${msg.author.id}> — **${reason}**\n🔇 Muted for **1 day**.`)
+                .setColor(RED)
+                .setTimestamp()
+            ]
         });
-        setTimeout(() => warn.delete().catch(() => {}), 5000);
+        setTimeout(() => warn.delete().catch(() => {}), 8000);
     } catch {}
 });
 
@@ -2231,13 +2251,19 @@ http.createServer(async (req, res) => {
         return res.end(lua);
     }
 
+    if (req.method === 'GET' && parsedUrl.pathname === '/health') {
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        return res.end('OK');
+    }
+
     res.writeHead(200);
     res.end("SMVLL HUB — online");
 }).listen(PORT, () => {
     console.log(`✅ HTTP server on port ${PORT}`);
     const selfUrl = process.env.RENDER_EXTERNAL_URL;
     if (selfUrl) {
-        setInterval(() => axios.get(selfUrl).catch(() => {}), 4 * 60 * 1000);
-        console.log(`✅ Self-ping active → ${selfUrl}`);
+        const pingUrl = selfUrl.replace(/\/$/, '') + '/health';
+        setInterval(() => axios.get(pingUrl).catch(() => {}), 2 * 60 * 1000);
+        console.log(`✅ Self-ping active every 2 min → ${pingUrl}`);
     }
 });
