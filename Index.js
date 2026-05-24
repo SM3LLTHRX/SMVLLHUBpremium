@@ -495,90 +495,6 @@ client.once('ready', async () => {
     }, 3000);
 });
 
-// ─── Script builder ─────────────────────────────────────────────────────
-
-async function buildBuyerScript(key) {
-    const botUrl    = (process.env.RENDER_EXTERNAL_URL || '').replace(/\/$/, '');
-    const scriptUrl = process.env.SCRIPT_LOADSTRING_URL || '';
-
-    let sourceCode = '-- [SMVLL HUB] Script source not configured.';
-    if (scriptUrl) {
-        const r = await axios.get(scriptUrl, { responseType: 'text', timeout: 10000 });
-        sourceCode = r.data;
-    }
-
-    const header = `-- ╔══════════════════════════════════════════════╗
--- ║          SMVLL HUB V2  •  HS CORP            ║
--- ║         Système de vérification de clé       ║
--- ╚══════════════════════════════════════════════╝
-
-local SCRIPT_KEY  = "${key}"
-local BOT_URL     = "${botUrl}"
-
-local HttpService = game:GetService("HttpService")
-
--- HWID avec fallback
-local hwid = "unknown"
-pcall(function()
-    hwid = tostring(game:GetService("RbxAnalyticsService"):GetClientId())
-end)
-if hwid == "unknown" or hwid == "" then
-    pcall(function()
-        hwid = tostring(game:GetService("Players").LocalPlayer.UserId)
-    end)
-end
-
--- Vérification avec 3 tentatives automatiques
-local verified   = false
-local verifyData = nil
-
-for attempt = 1, 3 do
-    local ok, raw = pcall(function()
-        return game:HttpGet(BOT_URL .. "/verify?key=" .. SCRIPT_KEY .. "&hwid=" .. hwid)
-    end)
-
-    if ok and raw and raw ~= "" then
-        local decOk, decoded = pcall(HttpService.JSONDecode, HttpService, raw)
-        if decOk and decoded then
-            verifyData = decoded
-            if decoded.valid then
-                verified = true
-            end
-            break
-        end
-    end
-
-    if attempt < 3 then
-        warn("[SMVLL HUB] Tentative " .. attempt .. "/3 échouée — nouvelle tentative dans 2s...")
-        task.wait(2)
-    end
-end
-
--- Résultat de la vérification
-if not verified then
-    local reason = (verifyData and verifyData.reason) or "Serveur inaccessible"
-    error(
-        "\\n╔══════════════════════════════════════╗" ..
-        "\\n║       SMVLL HUB — Accès refusé       ║" ..
-        "\\n╚══════════════════════════════════════╝" ..
-        "\\n  → " .. reason ..
-        "\\n  → Rejoins le Discord pour de l'aide." ..
-        "\\n"
-    )
-end
-
-print("╔══════════════════════════════════════╗")
-print("║        SMVLL HUB V2  •  HS CORP      ║")
-print("║     ✅  Clé vérifiée avec succès     ║")
-print("╚══════════════════════════════════════╝")
-
--- ════════════════════════════════════════════
-
-${sourceCode}`;
-
-    return header;
-}
-
 // ─── Interactions ───────────────────────────────────────────────────────
 
 async function handleBuyerAction(interaction, action) {
@@ -597,24 +513,11 @@ async function handleBuyerAction(interaction, action) {
             const [key, keyData] = entry;
             const now = Math.floor(Date.now() / 1000);
             if (keyData.expiry && keyData.expiry < now) return interaction.editReply({ embeds: [new EmbedBuilder().setDescription("⛔ Your key has **expired**. Contact support to renew.").setColor(RED)] });
+            const scriptUrl = process.env.SCRIPT_LOADSTRING_URL || 'CONFIGURE_SCRIPT_LOADSTRING_URL';
+            const script = `SCRIPT_KEY = "${key}"\nloadstring(game:HttpGet("${scriptUrl}"))()`;
             try {
-                const scriptContent = await buildBuyerScript(key);
-                const file = new AttachmentBuilder(Buffer.from(scriptContent, 'utf-8'), { name: 'smvllhub.lua' });
-                await interaction.user.send({
-                    files: [file],
-                    embeds: [new EmbedBuilder()
-                        .setTitle("🚀 SMVLL HUB V2 — Your Script")
-                        .setDescription("📂 **Execute the attached file** in your Roblox executor.\nYour key is already included — just run it.")
-                        .addFields(
-                            { name: "🔑 Key",      value: `\`${key}\``,                                                inline: false },
-                            { name: "⏱️ Expires",  value: keyData.expiry ? `<t:${keyData.expiry}:R>` : "♾️ Lifetime", inline: true },
-                            { name: "🖥️ HWID",    value: keyData.hwid ? "🔒 Locked" : "🔓 Not locked yet",           inline: true },
-                            { name: "💬 Support",  value: "Open a ticket in the server for any issue.",                inline: false }
-                        )
-                        .setColor(GREEN).setFooter({ text: "SMVLL HUB • HS CORP" }).setTimestamp()
-                    ]
-                });
-                await interaction.editReply({ embeds: [new EmbedBuilder().setDescription("✅ Your script has been sent to your DMs!").setColor(GREEN)] });
+                await interaction.user.send({ content: `\`\`\`lua\n${script}\n\`\`\`` });
+                await interaction.editReply({ embeds: [new EmbedBuilder().setDescription("✅ Script sent to your DMs!").setColor(GREEN)] });
                 sendLog("📤 Script sent (panel)", [{ name: "👤 Discord", value: interaction.user.tag, inline: true }], BLUE);
             } catch {
                 await interaction.editReply({ embeds: [new EmbedBuilder().setDescription("❌ Could not send DM. Check your Discord privacy settings.").setColor(RED)] });
@@ -1910,27 +1813,14 @@ client.on('interactionCreate', async interaction => {
                 });
             }
 
+            const scriptUrl2 = process.env.SCRIPT_LOADSTRING_URL || 'CONFIGURE_SCRIPT_LOADSTRING_URL';
+            const script2 = `SCRIPT_KEY = "${key}"\nloadstring(game:HttpGet("${scriptUrl2}"))()`;
             try {
-                const scriptContent = await buildBuyerScript(key);
-                const file = new AttachmentBuilder(Buffer.from(scriptContent, 'utf-8'), { name: 'smvllhub.lua' });
-                await interaction.user.send({
-                    files: [file],
-                    embeds: [new EmbedBuilder()
-                        .setTitle("🚀 SMVLL HUB V2 — Your Script")
-                        .setDescription("📂 **Execute the attached file** in your Roblox executor.\nYour key is already included — just run it.")
-                        .addFields(
-                            { name: "🔑 Key",      value: `\`${key}\``,                                                inline: false },
-                            { name: "⏱️ Expires",  value: keyData.expiry ? `<t:${keyData.expiry}:R>` : "♾️ Lifetime", inline: true },
-                            { name: "🖥️ HWID",    value: keyData.hwid ? "🔒 Locked" : "🔓 Not locked yet",           inline: true },
-                            { name: "💬 Support",  value: "Open a ticket in the server for any issue.",                inline: false }
-                        )
-                        .setColor(GREEN).setFooter({ text: "SMVLL HUB • HS CORP" }).setTimestamp()
-                    ]
-                });
+                await interaction.user.send({ content: `\`\`\`lua\n${script2}\n\`\`\`` });
 
                 await interaction.editReply({
                     embeds: [new EmbedBuilder()
-                        .setDescription("✅ Your script has been sent to your DMs!")
+                        .setDescription("✅ Script sent to your DMs!")
                         .setColor(GREEN)]
                 });
 
