@@ -501,36 +501,82 @@ async function buildBuyerScript(key) {
     const botUrl    = (process.env.RENDER_EXTERNAL_URL || '').replace(/\/$/, '');
     const scriptUrl = process.env.SCRIPT_LOADSTRING_URL || '';
 
-    let sourceCode = '-- Script source not configured (set SCRIPT_LOADSTRING_URL)';
+    let sourceCode = '-- [SMVLL HUB] Script source not configured.';
     if (scriptUrl) {
         const r = await axios.get(scriptUrl, { responseType: 'text', timeout: 10000 });
         sourceCode = r.data;
     }
 
-    const header = [
-        `-- ╔══════════════════════════════════╗`,
-        `-- ║      SMVLL HUB V2 — Key System   ║`,
-        `-- ╚══════════════════════════════════╝`,
-        `local _KEY  = "${key}"`,
-        `local _URL  = "${botUrl}"`,
-        `local _HTTP = game:GetService("HttpService")`,
-        `local _hwid = tostring(game:GetService("RbxAnalyticsService"):GetClientId())`,
-        ``,
-        `local _ok, _res = pcall(function()`,
-        `    return game:HttpGet(_URL .. "/verify?key=" .. _KEY .. "&hwid=" .. _hwid)`,
-        `end)`,
-        `if not _ok then error("[SMVLL HUB] Cannot reach verification server.") end`,
-        ``,
-        `local _data = _HTTP:JSONDecode(_res)`,
-        `if not _data or not _data.valid then`,
-        `    error("[SMVLL HUB] " .. (_data and _data.reason or "Invalid key."))`,
-        `end`,
-        ``,
-        `-- ════════════════════════════════════`,
-        ``,
-    ].join('\n');
+    const header = `-- ╔══════════════════════════════════════════════╗
+-- ║          SMVLL HUB V2  •  HS CORP            ║
+-- ║         Système de vérification de clé       ║
+-- ╚══════════════════════════════════════════════╝
 
-    return header + sourceCode;
+local SCRIPT_KEY  = "${key}"
+local BOT_URL     = "${botUrl}"
+
+local HttpService = game:GetService("HttpService")
+
+-- HWID avec fallback
+local hwid = "unknown"
+pcall(function()
+    hwid = tostring(game:GetService("RbxAnalyticsService"):GetClientId())
+end)
+if hwid == "unknown" or hwid == "" then
+    pcall(function()
+        hwid = tostring(game:GetService("Players").LocalPlayer.UserId)
+    end)
+end
+
+-- Vérification avec 3 tentatives automatiques
+local verified   = false
+local verifyData = nil
+
+for attempt = 1, 3 do
+    local ok, raw = pcall(function()
+        return game:HttpGet(BOT_URL .. "/verify?key=" .. SCRIPT_KEY .. "&hwid=" .. hwid)
+    end)
+
+    if ok and raw and raw ~= "" then
+        local decOk, decoded = pcall(HttpService.JSONDecode, HttpService, raw)
+        if decOk and decoded then
+            verifyData = decoded
+            if decoded.valid then
+                verified = true
+            end
+            break
+        end
+    end
+
+    if attempt < 3 then
+        warn("[SMVLL HUB] Tentative " .. attempt .. "/3 échouée — nouvelle tentative dans 2s...")
+        task.wait(2)
+    end
+end
+
+-- Résultat de la vérification
+if not verified then
+    local reason = (verifyData and verifyData.reason) or "Serveur inaccessible"
+    error(
+        "\\n╔══════════════════════════════════════╗" ..
+        "\\n║       SMVLL HUB — Accès refusé       ║" ..
+        "\\n╚══════════════════════════════════════╝" ..
+        "\\n  → " .. reason ..
+        "\\n  → Rejoins le Discord pour de l'aide." ..
+        "\\n"
+    )
+end
+
+print("╔══════════════════════════════════════╗")
+print("║        SMVLL HUB V2  •  HS CORP      ║")
+print("║     ✅  Clé vérifiée avec succès     ║")
+print("╚══════════════════════════════════════╝")
+
+-- ════════════════════════════════════════════
+
+${sourceCode}`;
+
+    return header;
 }
 
 // ─── Interactions ───────────────────────────────────────────────────────
