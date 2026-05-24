@@ -495,6 +495,44 @@ client.once('ready', async () => {
     }, 3000);
 });
 
+// ─── Script builder ─────────────────────────────────────────────────────
+
+async function buildBuyerScript(key) {
+    const botUrl    = (process.env.RENDER_EXTERNAL_URL || '').replace(/\/$/, '');
+    const scriptUrl = process.env.SCRIPT_LOADSTRING_URL || '';
+
+    let sourceCode = '-- Script source not configured (set SCRIPT_LOADSTRING_URL)';
+    if (scriptUrl) {
+        const r = await axios.get(scriptUrl, { responseType: 'text', timeout: 10000 });
+        sourceCode = r.data;
+    }
+
+    const header = [
+        `-- ╔══════════════════════════════════╗`,
+        `-- ║      SMVLL HUB V2 — Key System   ║`,
+        `-- ╚══════════════════════════════════╝`,
+        `local _KEY  = "${key}"`,
+        `local _URL  = "${botUrl}"`,
+        `local _HTTP = game:GetService("HttpService")`,
+        `local _hwid = tostring(game:GetService("RbxAnalyticsService"):GetClientId())`,
+        ``,
+        `local _ok, _res = pcall(function()`,
+        `    return game:HttpGet(_URL .. "/verify?key=" .. _KEY .. "&hwid=" .. _hwid)`,
+        `end)`,
+        `if not _ok then error("[SMVLL HUB] Cannot reach verification server.") end`,
+        ``,
+        `local _data = _HTTP:JSONDecode(_res)`,
+        `if not _data or not _data.valid then`,
+        `    error("[SMVLL HUB] " .. (_data and _data.reason or "Invalid key."))`,
+        `end`,
+        ``,
+        `-- ════════════════════════════════════`,
+        ``,
+    ].join('\n');
+
+    return header + sourceCode;
+}
+
 // ─── Interactions ───────────────────────────────────────────────────────
 
 async function handleBuyerAction(interaction, action) {
@@ -513,24 +551,24 @@ async function handleBuyerAction(interaction, action) {
             const [key, keyData] = entry;
             const now = Math.floor(Date.now() / 1000);
             if (keyData.expiry && keyData.expiry < now) return interaction.editReply({ embeds: [new EmbedBuilder().setDescription("⛔ Your key has **expired**. Contact support to renew.").setColor(RED)] });
-            const scriptUrl  = process.env.SCRIPT_LOADSTRING_URL || '';
-            const loadstring = `SCRIPT_KEY = "${key}"\nloadstring(game:HttpGet("${scriptUrl || 'CONFIGURE_SCRIPT_LOADSTRING_URL'}"))()`;
             try {
+                const scriptContent = await buildBuyerScript(key);
+                const file = new AttachmentBuilder(Buffer.from(scriptContent, 'utf-8'), { name: 'smvllhub.lua' });
                 await interaction.user.send({
-                    content: `\`\`\`lua\n${loadstring}\n\`\`\``,
+                    files: [file],
                     embeds: [new EmbedBuilder()
                         .setTitle("🚀 SMVLL HUB V2 — Your Script")
-                        .setDescription("📋 Paste the code above into your Roblox executor.")
+                        .setDescription("📂 **Execute the attached file** in your Roblox executor.\nYour key is already included — just run it.")
                         .addFields(
-                            { name: "🔑 Your Key", value: `\`${key}\``,                                                inline: false },
+                            { name: "🔑 Key",      value: `\`${key}\``,                                                inline: false },
                             { name: "⏱️ Expires",  value: keyData.expiry ? `<t:${keyData.expiry}:R>` : "♾️ Lifetime", inline: true },
-                            { name: "🖥️ HWID",    value: keyData.hwid ? "🔒 Locked" : "🔓 Not locked",               inline: true },
-                            { name: "💬 Support",  value: "For any issue, open a ticket in the server.",               inline: false }
+                            { name: "🖥️ HWID",    value: keyData.hwid ? "🔒 Locked" : "🔓 Not locked yet",           inline: true },
+                            { name: "💬 Support",  value: "Open a ticket in the server for any issue.",                inline: false }
                         )
                         .setColor(GREEN).setFooter({ text: "SMVLL HUB • HS CORP" }).setTimestamp()
                     ]
                 });
-                await interaction.editReply({ embeds: [new EmbedBuilder().setDescription("✅ Your script and key have been sent to your DMs!").setColor(GREEN)] });
+                await interaction.editReply({ embeds: [new EmbedBuilder().setDescription("✅ Your script has been sent to your DMs!").setColor(GREEN)] });
                 sendLog("📤 Script sent (panel)", [{ name: "👤 Discord", value: interaction.user.tag, inline: true }], BLUE);
             } catch {
                 await interaction.editReply({ embeds: [new EmbedBuilder().setDescription("❌ Could not send DM. Check your Discord privacy settings.").setColor(RED)] });
@@ -1826,30 +1864,27 @@ client.on('interactionCreate', async interaction => {
                 });
             }
 
-            const scriptUrl  = process.env.SCRIPT_LOADSTRING_URL || '';
-            const loadstring = `SCRIPT_KEY = "${key}"\nloadstring(game:HttpGet("${scriptUrl || 'CONFIGURE_SCRIPT_LOADSTRING_URL'}"))()`;
-
             try {
+                const scriptContent = await buildBuyerScript(key);
+                const file = new AttachmentBuilder(Buffer.from(scriptContent, 'utf-8'), { name: 'smvllhub.lua' });
                 await interaction.user.send({
-                    content: `\`\`\`lua\n${loadstring}\n\`\`\``,
+                    files: [file],
                     embeds: [new EmbedBuilder()
                         .setTitle("🚀 SMVLL HUB V2 — Your Script")
-                        .setDescription("Paste the code above into your Roblox executor.")
+                        .setDescription("📂 **Execute the attached file** in your Roblox executor.\nYour key is already included — just run it.")
                         .addFields(
-                            { name: "🔑 Your Key", value: `\`${key}\``,                                                inline: false },
+                            { name: "🔑 Key",      value: `\`${key}\``,                                                inline: false },
                             { name: "⏱️ Expires",  value: keyData.expiry ? `<t:${keyData.expiry}:R>` : "♾️ Lifetime", inline: true },
-                            { name: "🖥️ HWID",    value: keyData.hwid ? "🔒 Locked" : "🔓 Not locked",               inline: true },
-                            { name: "💬 Support",  value: "For any issue, open a ticket in the server.",               inline: false }
+                            { name: "🖥️ HWID",    value: keyData.hwid ? "🔒 Locked" : "🔓 Not locked yet",           inline: true },
+                            { name: "💬 Support",  value: "Open a ticket in the server for any issue.",                inline: false }
                         )
-                        .setColor(GREEN)
-                        .setFooter({ text: "SMVLL HUB • HS CORP" })
-                        .setTimestamp()
+                        .setColor(GREEN).setFooter({ text: "SMVLL HUB • HS CORP" }).setTimestamp()
                     ]
                 });
 
                 await interaction.editReply({
                     embeds: [new EmbedBuilder()
-                        .setDescription("✅ Your script and key have been sent to your DMs!")
+                        .setDescription("✅ Your script has been sent to your DMs!")
                         .setColor(GREEN)]
                 });
 
