@@ -7,6 +7,7 @@ const {
 const axios = require('axios');
 const ms    = require('ms');
 const fs   = require('fs');
+const path = require('path');
 const http = require('http');
 
 function parseDuration(str) {
@@ -2410,7 +2411,7 @@ button:hover{background:#00cc50}</style></head><body>
 
         res.writeHead(200, { 'Content-Type': 'text/html' });
         try {
-            return res.end(fs.readFileSync('./dashboard.html', 'utf8'));
+            return res.end(fs.readFileSync(path.join(__dirname, 'dashboard.html'), 'utf8'));
         } catch(e) {
             return res.end(`<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
