@@ -6,7 +6,8 @@ const {
 } = require('discord.js');
 const axios = require('axios');
 const ms    = require('ms');
-const http  = require('http');
+const fs   = require('fs');
+const http = require('http');
 
 function parseDuration(str) {
     if (!str) return undefined;
@@ -2393,12 +2394,14 @@ http.createServer(async (req, res) => {
         if (!authOk) {
             res.writeHead(200, { 'Content-Type': 'text/html' });
             return res.end(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>SMVLL HUB — Login</title>
-<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0d0d0d;color:#fff;font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh}
-.box{background:#161616;border:1px solid #00ff64;border-radius:12px;padding:40px;text-align:center;width:340px}
-h1{color:#00ff64;margin-bottom:24px;font-size:1.4rem}input{width:100%;padding:10px 14px;background:#0d0d0d;border:1px solid #333;border-radius:8px;color:#fff;font-size:1rem;margin-bottom:16px}
-button{width:100%;padding:10px;background:#00ff64;color:#000;font-weight:700;border:none;border-radius:8px;cursor:pointer;font-size:1rem}
+<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#080808;color:#fff;font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh}
+.box{background:#101010;border:1px solid #00ff6440;border-radius:13px;padding:36px;text-align:center;width:320px;box-shadow:0 0 40px #00ff6410}
+.logo{font-size:1.1rem;font-weight:700;color:#00ff64;margin-bottom:6px}.sub{font-size:.75rem;color:#444;margin-bottom:24px}
+input{width:100%;padding:9px 13px;background:#080808;border:1px solid #282828;border-radius:7px;color:#fff;font-size:.9rem;margin-bottom:13px;font-family:inherit;transition:.15s}
+input:focus{outline:none;border-color:#00ff64}
+button{width:100%;padding:9px;background:#00ff64;color:#000;font-weight:700;border:none;border-radius:7px;cursor:pointer;font-size:.9rem;transition:.15s}
 button:hover{background:#00cc50}</style></head><body>
-<div class="box"><h1>🟢 SMVLL HUB</h1>
+<div class="box"><div class="logo">SMVLL HUB</div><div class="sub">Admin Dashboard</div>
 <input type="password" id="t" placeholder="Dashboard token" onkeydown="if(event.key==='Enter')login()">
 <button onclick="login()">Login</button></div>
 <script>function login(){const t=document.getElementById('t').value;if(t)window.location.href='/dashboard?token='+encodeURIComponent(t);}</script>
@@ -2406,7 +2409,10 @@ button:hover{background:#00cc50}</style></head><body>
         }
 
         res.writeHead(200, { 'Content-Type': 'text/html' });
-        return res.end(`<!DOCTYPE html>
+        try {
+            return res.end(fs.readFileSync('./dashboard.html', 'utf8'));
+        } catch(e) {
+            return res.end(`<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SMVLL HUB — Dashboard</title>
 <style>
@@ -2606,9 +2612,8 @@ function openModal(id){ document.getElementById(id).classList.add('open'); }
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
 
-loadKeys();
-setInterval(loadKeys, 30000);
-</script></body></html>`);
+<h1 style="color:#ff4444;font-family:system-ui;padding:40px">dashboard.html not found</h1>`);
+        }
     }
 
     res.writeHead(200);

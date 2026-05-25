@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SMVLL HUB — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:       #080808;
+  --surface:  #101010;
+  --surface2: #141414;
+  --surface3: #1c1c1c;
+  --border:   #1e1e1e;
+  --border2:  #282828;
+  --accent:   #00ff64;
+  --accent-d: rgba(0,255,100,.12);
+  --accent-h: #00cc50;
+  --text:     #f0f0f0;
+  --text2:    #888;
+  --text3:    #444;
+  --red:      #ff4444;
+  --red-d:    rgba(255,68,68,.12);
+  --orange:   #ff8800;
+  --orange-d: rgba(255,136,0,.12);
+  --blue:     #4d9fff;
+  --blue-d:   rgba(77,159,255,.12);
+  --r:        10px;
+  --r-sm:     6px;
+  --sw:       220px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.5;display:flex;min-height:100vh}
+
+/* ── Sidebar ── */
+.sidebar{width:var(--sw);background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:10}
+.sb-logo{padding:20px 18px 16px;border-bottom:1px solid var(--border)}
+.sb-logo .name{font-size:.95rem;font-weight:700;color:var(--accent);letter-spacing:-.02em}
+.sb-logo .sub{font-size:.7rem;color:var(--text3);margin-top:2px}
+.sb-nav{padding:10px 8px;flex:1}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 11px;border-radius:var(--r-sm);cursor:pointer;color:var(--text2);font-size:.84rem;font-weight:500;transition:.12s;margin-bottom:2px;user-select:none;border:none;background:none;width:100%;font-family:inherit;text-align:left}
+.nav-item:hover{background:var(--surface2);color:var(--text)}
+.nav-item.active{background:var(--accent-d);color:var(--accent)}
+.sb-footer{padding:14px 18px;border-top:1px solid var(--border);font-size:.7rem;color:var(--text3)}
+
+/* ── Main ── */
+.main{margin-left:var(--sw);flex:1;display:flex;flex-direction:column;min-height:100vh}
+
+/* ── Topbar ── */
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:5}
+.topbar h1{font-size:.95rem;font-weight:600}
+.topbar-right{margin-left:auto;display:flex;gap:8px;align-items:center}
+.topbar-right .ts{font-size:.72rem;color:var(--text3)}
+
+/* ── Content ── */
+.content{padding:22px 24px}
+
+/* ── Stats ── */
+.stats-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:11px;margin-bottom:20px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;transition:.15s}
+.stat:hover{border-color:var(--border2)}
+.stat .val{font-size:1.7rem;font-weight:700;line-height:1;margin-bottom:5px}
+.stat .lbl{font-size:.7rem;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.06em}
+.stat.g .val{color:var(--accent)}
+.stat.r .val{color:var(--red)}
+.stat.o .val{color:var(--orange)}
+.stat.b .val{color:var(--blue)}
+
+/* ── Buttons ── */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 13px;border-radius:var(--r-sm);border:none;font-size:.78rem;font-weight:600;cursor:pointer;transition:.12s;font-family:inherit;line-height:1;white-space:nowrap}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn-primary{background:var(--accent);color:#000}
+.btn-primary:hover:not(:disabled){background:var(--accent-h)}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
+.btn-secondary:hover:not(:disabled){background:var(--surface3)}
+.btn-danger{background:var(--red-d);color:var(--red);border:1px solid rgba(255,68,68,.25)}
+.btn-danger:hover:not(:disabled){background:rgba(255,68,68,.2)}
+.btn-warn{background:var(--orange-d);color:var(--orange);border:1px solid rgba(255,136,0,.25)}
+.btn-warn:hover:not(:disabled){background:rgba(255,136,0,.2)}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid transparent}
+.btn-ghost:hover:not(:disabled){background:var(--surface2);color:var(--text);border-color:var(--border)}
+.btn-sm{padding:5px 10px;font-size:.72rem}
+.btn-icon{padding:6px;border-radius:var(--r-sm)}
+
+/* ── Toolbar ── */
+.toolbar{display:flex;gap:10px;margin-bottom:14px;align-items:center;flex-wrap:wrap}
+.search-wrap{position:relative;flex:1;max-width:300px}
+.search-wrap svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text3);pointer-events:none}
+.search-wrap input{width:100%;padding:7px 11px 7px 32px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-size:.84rem;font-family:inherit;transition:.12s}
+.search-wrap input:focus{outline:none;border-color:var(--accent)}
+.search-wrap input::placeholder{color:var(--text3)}
+.ftabs{display:flex;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);padding:3px;gap:2px}
+.ftab{padding:4px 11px;border-radius:4px;font-size:.76rem;font-weight:600;cursor:pointer;color:var(--text2);transition:.12s;border:none;background:none;font-family:inherit}
+.ftab:hover{color:var(--text);background:var(--surface2)}
+.ftab.active{background:var(--surface3);color:var(--text)}
+.toolbar-end{margin-left:auto;display:flex;gap:8px}
+
+/* ── Bulk bar ── */
+.bulk-bar{display:none;align-items:center;gap:12px;padding:9px 14px;background:var(--accent-d);border:1px solid rgba(0,255,100,.2);border-radius:var(--r-sm);margin-bottom:12px}
+.bulk-bar.on{display:flex}
+.bulk-bar .bc{font-size:.84rem;font-weight:600;color:var(--accent)}
+.bulk-bar .ba{margin-left:auto;display:flex;gap:7px}
+
+/* ── Table ── */
+.tbl-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+table{width:100%;border-collapse:collapse}
+thead{background:var(--surface2)}
+th{padding:9px 14px;text-align:left;font-size:.68rem;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;user-select:none;white-space:nowrap}
+th.sort{cursor:pointer}
+th.sort:hover{color:var(--text)}
+th.sort-on{color:var(--accent)}
+.si{margin-left:3px;opacity:.5;font-style:normal}
+th.sort-on .si{opacity:1}
+td{padding:10px 14px;border-bottom:1px solid var(--border);font-size:.83rem;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--surface2)}
+.key-cell{display:flex;align-items:center;gap:7px}
+.key-val{font-family:'SFMono-Regular',Consolas,monospace;font-size:.76rem;color:var(--text2)}
+.copy-btn{opacity:0;background:none;border:none;cursor:pointer;color:var(--text3);line-height:0;padding:2px;border-radius:3px;transition:.12s}
+tr:hover .copy-btn{opacity:1}
+.copy-btn:hover{color:var(--accent)}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;font-size:.7rem;font-weight:600;white-space:nowrap}
+.dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.bg{background:var(--accent-d);color:var(--accent);border:1px solid rgba(0,255,100,.25)}.bg .dot{background:var(--accent)}
+.br{background:var(--red-d);color:var(--red);border:1px solid rgba(255,68,68,.25)}.br .dot{background:var(--red)}
+.bo{background:var(--orange-d);color:var(--orange);border:1px solid rgba(255,136,0,.25)}.bo .dot{background:var(--orange)}
+.bx{background:rgba(255,255,255,.04);color:var(--text3);border:1px solid rgba(255,255,255,.08)}.bx .dot{background:var(--text3)}
+.dc .tag{color:var(--text)}
+.dc .id{color:var(--text3);font-size:.7rem;font-family:monospace;margin-top:1px}
+.row-acts{display:flex;gap:4px;opacity:0;transition:.12s}
+tr:hover .row-acts{opacity:1}
+.cb-wrap{display:flex;align-items:center;justify-content:center}
+input[type=checkbox]{width:14px;height:14px;accent-color:var(--accent);cursor:pointer}
+
+/* ── Pagination ── */
+.pag{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-top:1px solid var(--border)}
+.pag .pi{font-size:.76rem;color:var(--text2)}
+.pag .pp{display:flex;gap:4px}
+.pb{width:28px;height:28px;border-radius:var(--r-sm);border:1px solid var(--border);background:none;color:var(--text2);font-size:.76rem;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;transition:.12s}
+.pb:hover{background:var(--surface2);color:var(--text)}
+.pb.on{background:var(--accent-d);color:var(--accent);border-color:rgba(0,255,100,.25)}
+.pb:disabled{opacity:.3;cursor:not-allowed}
+
+/* ── Modal ── */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
+.overlay.on{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:13px;padding:26px;width:390px;max-width:92vw;animation:min .2s ease}
+@keyframes min{from{opacity:0;transform:scale(.95) translateY(8px)}to{opacity:1;transform:none}}
+.m-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.m-title{font-size:.95rem;font-weight:600}
+.m-x{width:26px;height:26px;border-radius:5px;border:none;background:var(--surface2);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.12s;font-size:.85rem}
+.m-x:hover{background:var(--surface3);color:var(--text)}
+.modal label{display:block;font-size:.72rem;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.modal input,.modal select{width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:var(--r-sm);padding:8px 11px;color:var(--text);font-size:.86rem;margin-bottom:14px;font-family:inherit;transition:.12s}
+.modal input:focus,.modal select:focus{outline:none;border-color:var(--accent)}
+.modal select option{background:var(--surface2)}
+.m-ft{display:flex;gap:8px;justify-content:flex-end;margin-top:6px}
+.confirm-ico{width:42px;height:42px;border-radius:9px;display:flex;align-items:center;justify-content:center;margin-bottom:14px;background:var(--red-d);border:1px solid rgba(255,68,68,.25)}
+.confirm-ico.warn{background:var(--orange-d);border-color:rgba(255,136,0,.25)}
+.confirm-t{font-size:.95rem;font-weight:600;margin-bottom:7px}
+.confirm-b{font-size:.84rem;color:var(--text2);margin-bottom:18px;line-height:1.6}
+
+/* ── Toast ── */
+.tc{position:fixed;bottom:22px;right:22px;z-index:200;display:flex;flex-direction:column;gap:7px;align-items:flex-end}
+.toast{display:flex;align-items:center;gap:9px;padding:10px 15px;border-radius:9px;font-size:.84rem;font-weight:500;animation:tin .22s ease;max-width:300px}
+@keyframes tin{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}
+.toast.out{animation:tout .18s ease forwards}
+@keyframes tout{to{opacity:0;transform:translateX(14px)}}
+.ts-ok{background:var(--accent-d);border:1px solid rgba(0,255,100,.25);color:var(--accent)}
+.ts-err{background:var(--red-d);border:1px solid rgba(255,68,68,.25);color:var(--red)}
+.ts-info{background:var(--blue-d);border:1px solid rgba(77,159,255,.25);color:var(--blue)}
+.ts-warn{background:var(--orange-d);border:1px solid rgba(255,136,0,.25);color:var(--orange)}
+
+/* ── Empty ── */
+.empty{text-align:center;padding:44px 20px;color:var(--text2)}
+.empty svg{margin:0 auto 14px;opacity:.25}
+.empty p{font-size:.88rem}
+.empty .es{font-size:.76rem;color:var(--text3);margin-top:5px}
+
+/* ── Misc ── */
+.spinner{width:13px;height:13px;border:2px solid rgba(255,255,255,.2);border-top-color:currentColor;border-radius:50%;animation:spin .55s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.hint{font-size:.72rem;color:var(--text3);margin-top:-10px;margin-bottom:12px}
+
+@media(max-width:1100px){.stats-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:768px){.sidebar{display:none}.main{margin-left:0}.stats-grid{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside class="sidebar">
+  <div class="sb-logo">
+    <div class="name">SMVLL HUB</div>
+    <div class="sub">Admin Dashboard</div>
+  </div>
+  <nav class="sb-nav">
+    <button class="nav-item active" onclick="setView('keys',this)">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+      Keys
+    </button>
+    <button class="nav-item" onclick="setView('stats',this)">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="18" y="3" width="4" height="18"/><rect x="10" y="8" width="4" height="13"/><rect x="2" y="13" width="4" height="8"/></svg>
+      Analytics
+    </button>
+  </nav>
+  <div class="sb-footer">SMVLL HUB v2 &bull; HS CORP</div>
+</aside>
+
+<!-- Main -->
+<div class="main">
+  <header class="topbar">
+    <h1 id="view-title">Key Management</h1>
+    <div class="topbar-right">
+      <span class="ts" id="lastRefresh"></span>
+      <button class="btn btn-ghost btn-sm" onclick="loadKeys()" id="refreshBtn">
+        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
+        Refresh
+      </button>
+      <button class="btn btn-ghost btn-sm" onclick="exportCSV()">
+        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export CSV
+      </button>
+      <button class="btn btn-primary btn-sm" onclick="openM('mCreate')">
+        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        New Key
+      </button>
+    </div>
+  </header>
+
+  <!-- Keys view -->
+  <div class="content" id="view-keys">
+    <div class="stats-grid">
+      <div class="stat"><div class="val" id="s0">—</div><div class="lbl">Total</div></div>
+      <div class="stat g"><div class="val" id="s1">—</div><div class="lbl">Active</div></div>
+      <div class="stat r"><div class="val" id="s2">—</div><div class="lbl">Expired</div></div>
+      <div class="stat o"><div class="val" id="s3">—</div><div class="lbl">Unlinked</div></div>
+      <div class="stat b"><div class="val" id="s4">—</div><div class="lbl">HWID Locked</div></div>
+    </div>
+
+    <div class="bulk-bar" id="bulkBar">
+      <span class="bc" id="bulkCount">0 selected</span>
+      <div class="ba">
+        <button class="btn btn-warn btn-sm" onclick="bulkResetHwid()">&#8634; Reset HWID</button>
+        <button class="btn btn-danger btn-sm" onclick="bulkDelete()">Delete selected</button>
+        <button class="btn btn-ghost btn-sm" onclick="clearSel()">&#10005; Cancel</button>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <div class="search-wrap">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input id="searchInput" placeholder="Search key, Discord tag, ID&hellip;" oninput="onSearch()">
+      </div>
+      <div class="ftabs">
+        <button class="ftab active" onclick="setFilter('all',this)">All</button>
+        <button class="ftab" onclick="setFilter('active',this)">Active</button>
+        <button class="ftab" onclick="setFilter('expired',this)">Expired</button>
+        <button class="ftab" onclick="setFilter('unlinked',this)">Unlinked</button>
+        <button class="ftab" onclick="setFilter('hwid',this)">HWID</button>
+      </div>
+      <div class="toolbar-end">
+        <button class="btn btn-secondary btn-sm" onclick="openM('mGenBulk')">Bulk generate</button>
+      </div>
+    </div>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th style="width:34px"><input type="checkbox" id="selAll" onchange="toggleSelAll(this)"></th>
+          <th class="sort" onclick="toggleSort('key')">Key <i class="si" id="si-key">&#8597;</i></th>
+          <th>Discord</th>
+          <th class="sort" onclick="toggleSort('status')">Status <i class="si" id="si-status">&#8597;</i></th>
+          <th class="sort" onclick="toggleSort('expiry')">Expires <i class="si" id="si-expiry">&#8597;</i></th>
+          <th>HWID</th>
+          <th class="sort" onclick="toggleSort('createdAt')">Created <i class="si" id="si-createdAt">&#8597;</i></th>
+          <th style="width:120px">Actions</th>
+        </tr></thead>
+        <tbody id="tbody"><tr><td colspan="8"><div class="empty"><p>Loading&hellip;</p></div></td></tr></tbody>
+      </table>
+      <div class="pag" id="pag" style="display:none">
+        <span class="pi" id="pagInfo"></span>
+        <div class="pp" id="pagBtns"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Analytics view -->
+  <div class="content" id="view-stats" style="display:none">
+    <div class="stats-grid" style="grid-template-columns:repeat(4,1fr)">
+      <div class="stat"><div class="val" id="a0">—</div><div class="lbl">Total Keys</div></div>
+      <div class="stat g"><div class="val" id="a1">—</div><div class="lbl">Active</div></div>
+      <div class="stat r"><div class="val" id="a2">—</div><div class="lbl">Expired</div></div>
+      <div class="stat b"><div class="val" id="a3">—</div><div class="lbl">HWID Locked</div></div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:24px;margin-top:0">
+      <div style="font-size:.84rem;font-weight:600;margin-bottom:16px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em">Key status breakdown</div>
+      <div id="chartBars" style="display:flex;flex-direction:column;gap:12px"></div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:24px;margin-top:12px">
+      <div style="font-size:.84rem;font-weight:600;margin-bottom:16px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em">Expiration breakdown</div>
+      <div id="expChart" style="display:flex;flex-direction:column;gap:12px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Create Key modal ── -->
+<div class="overlay" id="mCreate">
+  <div class="modal">
+    <div class="m-hd"><span class="m-title">Generate key</span><button class="m-x" onclick="closeM('mCreate')">&#10005;</button></div>
+    <label>Expiration</label>
+    <select id="c-exp" onchange="toggleExpWrap()">
+      <option value="lifetime">Lifetime &#8734;</option>
+      <option value="days" selected>By days</option>
+    </select>
+    <div id="c-daysWrap">
+      <label>Days</label>
+      <input type="number" id="c-days" value="30" min="1" placeholder="30">
+    </div>
+    <label>Discord tag (optional)</label>
+    <input type="text" id="c-tag" placeholder="user#0000">
+    <div class="m-ft">
+      <button class="btn btn-ghost" onclick="closeM('mCreate')">Cancel</button>
+      <button class="btn btn-primary" onclick="createKey()" id="btnCreate">Generate</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Bulk Generate modal ── -->
+<div class="overlay" id="mGenBulk">
+  <div class="modal">
+    <div class="m-hd"><span class="m-title">Bulk generate keys</span><button class="m-x" onclick="closeM('mGenBulk')">&#10005;</button></div>
+    <label>Number of keys</label>
+    <input type="number" id="gb-count" value="5" min="1" max="50" placeholder="5">
+    <label>Expiration</label>
+    <select id="gb-exp" onchange="toggleGbWrap()">
+      <option value="lifetime">Lifetime &#8734;</option>
+      <option value="days" selected>By days</option>
+    </select>
+    <div id="gb-daysWrap">
+      <label>Days</label>
+      <input type="number" id="gb-days" value="30" min="1">
+    </div>
+    <div class="m-ft">
+      <button class="btn btn-ghost" onclick="closeM('mGenBulk')">Cancel</button>
+      <button class="btn btn-primary" onclick="bulkGenerate()" id="btnGenBulk">Generate</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Extend modal ── -->
+<div class="overlay" id="mExtend">
+  <div class="modal">
+    <div class="m-hd"><span class="m-title">Extend key</span><button class="m-x" onclick="closeM('mExtend')">&#10005;</button></div>
+    <label>Key</label>
+    <input type="text" id="e-display" readonly style="color:var(--text3);font-family:monospace;font-size:.76rem">
+    <input type="hidden" id="e-key">
+    <label>Days to add</label>
+    <input type="number" id="e-days" value="30" min="1">
+    <div class="hint">Will be added on top of current expiry (or from today if expired).</div>
+    <div class="m-ft">
+      <button class="btn btn-ghost" onclick="closeM('mExtend')">Cancel</button>
+      <button class="btn btn-warn" onclick="extendKey()" id="btnExtend">Extend</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Confirm modal ── -->
+<div class="overlay" id="mConfirm">
+  <div class="modal" style="max-width:330px">
+    <div class="confirm-ico" id="confirmIco">
+      <svg width="19" height="19" fill="none" stroke="var(--red)" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+    </div>
+    <div class="confirm-t" id="confirmTitle">Are you sure?</div>
+    <div class="confirm-b" id="confirmBody">This action cannot be undone.</div>
+    <div class="m-ft">
+      <button class="btn btn-ghost" onclick="closeM('mConfirm')">Cancel</button>
+      <button class="btn btn-danger" id="confirmOk">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Bulk result modal ── -->
+<div class="overlay" id="mBulkResult">
+  <div class="modal">
+    <div class="m-hd"><span class="m-title">Generated keys</span><button class="m-x" onclick="closeM('mBulkResult')">&#10005;</button></div>
+    <p style="font-size:.82rem;color:var(--text2);margin-bottom:12px">Keys have been created. Copy them before closing.</p>
+    <textarea id="bulkResultText" readonly style="width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:var(--r-sm);color:var(--text2);font-family:monospace;font-size:.76rem;padding:10px;resize:none;height:160px;outline:none"></textarea>
+    <div class="m-ft" style="margin-top:10px">
+      <button class="btn btn-ghost" onclick="closeM('mBulkResult')">Close</button>
+      <button class="btn btn-primary" onclick="copyBulkResult()">Copy all</button>
+    </div>
+  </div>
+</div>
+
+<div class="tc" id="tc"></div>
+
+<script>
+const TOKEN = new URLSearchParams(location.search).get('token') || '';
+let allKeys = [], filtered = [], selected = new Set();
+let sortCol = 'createdAt', sortDir = -1;
+let curFilter = 'all', curPage = 1;
+const PAGE = 25;
+
+// ── API ───────────────────────────────────────────────────────────
+async function api(path, method, body) {
+  const sep = path.includes('?') ? '&' : '?';
+  const r = await fetch('/api/dash' + path + sep + 'token=' + TOKEN, {
+    method: method || 'GET',
+    headers: { 'Content-Type': 'application/json', 'x-dashboard-token': TOKEN },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  return r.json();
+}
+
+// ── Load ──────────────────────────────────────────────────────────
+async function loadKeys(silent) {
+  if (!silent) { setRefreshBtn(true); }
+  try {
+    const r = await api('/keys');
+    if (!r.success) { toast('Failed to load', 'err'); return; }
+    allKeys = r.keys;
+    updateStats();
+    applyFilter();
+    document.getElementById('lastRefresh').textContent = new Date().toLocaleTimeString();
+  } catch(e) { toast('Connection error', 'err'); }
+  finally { if (!silent) setRefreshBtn(false); }
+}
+
+function setRefreshBtn(loading) {
+  const b = document.getElementById('refreshBtn');
+  b.disabled = loading;
+  b.innerHTML = loading
+    ? '<span class="spinner"></span> Loading'
+    : '<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg> Refresh';
+}
+
+function updateStats() {
+  const exp = allKeys.filter(k => k.expired).length;
+  const act = allKeys.filter(k => !k.expired && k.discordId).length;
+  const unl = allKeys.filter(k => !k.discordId).length;
+  const hwid = allKeys.filter(k => k.hwid).length;
+  document.getElementById('s0').textContent = allKeys.length;
+  document.getElementById('s1').textContent = act;
+  document.getElementById('s2').textContent = exp;
+  document.getElementById('s3').textContent = unl;
+  document.getElementById('s4').textContent = hwid;
+  // analytics
+  document.getElementById('a0').textContent = allKeys.length;
+  document.getElementById('a1').textContent = act;
+  document.getElementById('a2').textContent = exp;
+  document.getElementById('a3').textContent = hwid;
+  renderCharts(act, exp, unl, hwid);
+}
+
+function renderCharts(act, exp, unl, hwid) {
+  const total = allKeys.length || 1;
+  const bars = [
+    { label: 'Active', val: act, color: 'var(--accent)' },
+    { label: 'Expired', val: exp, color: 'var(--red)' },
+    { label: 'Unlinked', val: unl, color: 'var(--orange)' },
+    { label: 'HWID Locked', val: hwid, color: 'var(--blue)' },
+  ];
+  document.getElementById('chartBars').innerHTML = bars.map(b =>
+    '<div style="display:flex;align-items:center;gap:12px">' +
+    '<div style="width:90px;font-size:.78rem;color:var(--text2);flex-shrink:0">' + b.label + '</div>' +
+    '<div style="flex:1;background:var(--surface2);border-radius:4px;height:8px;overflow:hidden">' +
+    '<div style="width:' + Math.round(b.val/total*100) + '%;background:' + b.color + ';height:100%;border-radius:4px;transition:.4s"></div></div>' +
+    '<div style="width:48px;font-size:.78rem;font-weight:600;text-align:right;color:' + b.color + '">' + b.val + '</div>' +
+    '</div>'
+  ).join('');
+
+  const now = Math.floor(Date.now() / 1000);
+  const in7  = allKeys.filter(k => k.expiry && !k.expired && (k.expiry - now) < 7*86400).length;
+  const in30 = allKeys.filter(k => k.expiry && !k.expired && (k.expiry - now) < 30*86400).length - in7;
+  const life = allKeys.filter(k => !k.expiry).length;
+  const expd = exp;
+  const expBars = [
+    { label: 'Lifetime', val: life, color: 'var(--accent)' },
+    { label: 'Expiring 30d', val: in30, color: 'var(--blue)' },
+    { label: 'Expiring 7d', val: in7, color: 'var(--orange)' },
+    { label: 'Expired', val: expd, color: 'var(--red)' },
+  ];
+  document.getElementById('expChart').innerHTML = expBars.map(b =>
+    '<div style="display:flex;align-items:center;gap:12px">' +
+    '<div style="width:90px;font-size:.78rem;color:var(--text2);flex-shrink:0">' + b.label + '</div>' +
+    '<div style="flex:1;background:var(--surface2);border-radius:4px;height:8px;overflow:hidden">' +
+    '<div style="width:' + Math.round(b.val/total*100) + '%;background:' + b.color + ';height:100%;border-radius:4px;transition:.4s"></div></div>' +
+    '<div style="width:48px;font-size:.78rem;font-weight:600;text-align:right;color:' + b.color + '">' + b.val + '</div>' +
+    '</div>'
+  ).join('');
+}
+
+// ── Filter / Sort ─────────────────────────────────────────────────
+function setFilter(f, el) {
+  curFilter = f; curPage = 1;
+  document.querySelectorAll('.ftab').forEach(t => t.classList.remove('active'));
+  if (el) el.classList.add('active');
+  applyFilter();
+}
+function onSearch() { curPage = 1; applyFilter(); }
+function applyFilter() {
+  const q = (document.getElementById('searchInput').value || '').toLowerCase();
+  filtered = allKeys.filter(k => {
+    const f = curFilter;
+    const mf = f==='all' || (f==='active'&&!k.expired&&k.discordId) || (f==='expired'&&k.expired) || (f==='unlinked'&&!k.discordId) || (f==='hwid'&&k.hwid);
+    const ms = !q || k.key.toLowerCase().includes(q) || (k.discordTag||'').toLowerCase().includes(q) || (k.discordId||'').includes(q);
+    return mf && ms;
+  });
+  sortData();
+}
+function toggleSort(col) {
+  if (sortCol===col) sortDir*=-1; else { sortCol=col; sortDir=-1; }
+  document.querySelectorAll('.si').forEach(s => s.innerHTML = '&#8597;');
+  document.querySelectorAll('th').forEach(t => t.classList.remove('sort-on'));
+  const si = document.getElementById('si-'+col);
+  if (si) { si.innerHTML = sortDir===-1 ? '&#8595;' : '&#8593;'; si.closest('th').classList.add('sort-on'); }
+  sortData();
+}
+function sortData() {
+  filtered.sort((a, b) => {
+    let av = a[sortCol], bv = b[sortCol];
+    if (sortCol==='status') { av=a.expired?2:(a.discordId?0:1); bv=b.expired?2:(b.discordId?0:1); }
+    if (av==null) av=0; if (bv==null) bv=0;
+    if (typeof av==='string') return sortDir*av.localeCompare(bv);
+    return sortDir*(av-bv);
+  });
+  renderTable();
+}
+
+// ── Render ────────────────────────────────────────────────────────
+function renderTable() {
+  const tb = document.getElementById('tbody');
+  if (!filtered.length) {
+    tb.innerHTML = '<tr><td colspan="8"><div class="empty"><svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg><p>No keys found</p><p class="es">Try a different search or filter</p></div></td></tr>';
+    document.getElementById('pag').style.display='none';
+    return;
+  }
+  const total=filtered.length, pages=Math.ceil(total/PAGE);
+  if (curPage>pages) curPage=pages;
+  const start=(curPage-1)*PAGE, items=filtered.slice(start,start+PAGE);
+
+  tb.innerHTML = items.map(k => {
+    const chk = selected.has(k.key) ? 'checked' : '';
+    const status = k.expired
+      ? '<span class="badge br"><span class="dot"></span>Expired</span>'
+      : k.discordId
+        ? '<span class="badge bg"><span class="dot"></span>Active</span>'
+        : '<span class="badge bo"><span class="dot"></span>Unlinked</span>';
+    const exp = k.expiry
+      ? '<span title="'+new Date(k.expiry*1000).toLocaleString()+'">'+fmtDate(k.expiry)+'</span>'
+      : '<span style="color:var(--accent);font-size:.74rem">&#8734; Lifetime</span>';
+    const hwid = k.hwid
+      ? '<span class="badge bg">Locked</span>'
+      : '<span class="badge bx">Unlocked</span>';
+    const disc = k.discordTag
+      ? '<div class="dc"><div class="tag">'+esc(k.discordTag)+'</div>'+(k.discordId?'<div class="id">'+k.discordId+'</div>':'')+'</div>'
+      : '<span style="color:var(--text3)">&#8212;</span>';
+    const key = k.key;
+    return '<tr>'+
+      '<td><div class="cb-wrap"><input type="checkbox" '+chk+' onchange="toggleSel(\''+key+'\',this)"></div></td>'+
+      '<td><div class="key-cell"><span class="key-val">'+esc(key)+'</span>'+
+        '<button class="copy-btn" onclick="copyKey(\''+key+'\')" title="Copy">'+
+        '<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div></td>'+
+      '<td>'+disc+'</td>'+
+      '<td>'+status+'</td>'+
+      '<td>'+exp+'</td>'+
+      '<td>'+hwid+'</td>'+
+      '<td>'+fmtDate(k.createdAt)+'</td>'+
+      '<td><div class="row-acts">'+
+        (k.hwid?'<button class="btn btn-warn btn-icon btn-sm" onclick="doResetHwid(\''+key+'\')" title="Reset HWID"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg></button>':'')+
+        '<button class="btn btn-ghost btn-icon btn-sm" onclick="openExtend(\''+key+'\')" title="Extend"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></button>'+
+        '<button class="btn btn-danger btn-icon btn-sm" onclick="confirmDelete(\''+key+'\')" title="Delete"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>'+
+      '</div></td>'+
+    '</tr>';
+  }).join('');
+
+  // Pagination
+  const pag = document.getElementById('pag');
+  if (total>PAGE) {
+    pag.style.display='flex';
+    document.getElementById('pagInfo').textContent='Showing '+(start+1)+'–'+Math.min(start+PAGE,total)+' of '+total;
+    let h = '<button class="pb" onclick="setPage('+(curPage-1)+')" '+(curPage===1?'disabled':'')+'>&#8249;</button>';
+    for (let i=1;i<=pages;i++) {
+      if (pages>7&&i>2&&i<pages-1&&Math.abs(i-curPage)>1) { if(i===3||i===pages-2) h+='<span style="padding:0 3px;color:var(--text3)">…</span>'; continue; }
+      h+='<button class="pb '+(i===curPage?'on':'')+'" onclick="setPage('+i+')">'+i+'</button>';
+    }
+    h+='<button class="pb" onclick="setPage('+(curPage+1)+')" '+(curPage===pages?'disabled':'')+'>&#8250;</button>';
+    document.getElementById('pagBtns').innerHTML=h;
+  } else pag.style.display='none';
+}
+function setPage(n) { const p=Math.ceil(filtered.length/PAGE); if(n<1||n>p)return; curPage=n; renderTable(); }
+
+// ── Selection ─────────────────────────────────────────────────────
+function toggleSel(key,cb) { cb.checked?selected.add(key):selected.delete(key); updBulk(); }
+function toggleSelAll(cb) {
+  filtered.slice((curPage-1)*PAGE,curPage*PAGE).forEach(k=>cb.checked?selected.add(k.key):selected.delete(k.key));
+  renderTable(); updBulk();
+}
+function clearSel() { selected.clear(); document.getElementById('selAll').checked=false; renderTable(); updBulk(); }
+function updBulk() {
+  const bar=document.getElementById('bulkBar');
+  if (selected.size>0) { bar.classList.add('on'); document.getElementById('bulkCount').textContent=selected.size+' selected'; }
+  else bar.classList.remove('on');
+}
+
+// ── Actions ───────────────────────────────────────────────────────
+function confirmDelete(key) {
+  confirm2('Delete key?','Key: '+key+'\n\nThis cannot be undone.','Delete','danger',async()=>{
+    const r=await api('/key','DELETE',{key});
+    r.success?toast('Key deleted','ok'):toast(r.error||'Error','err');
+    loadKeys(true);
+  });
+}
+async function bulkDelete() {
+  const keys=[...selected], n=keys.length;
+  confirm2('Delete '+n+' keys?','This will permanently delete '+n+' keys. Cannot be undone.','Delete all','danger',async()=>{
+    let ok=0; for(const k of keys){const r=await api('/key','DELETE',{key:k});if(r.success)ok++;}
+    toast('Deleted '+ok+'/'+n+' keys','ok'); clearSel(); loadKeys(true);
+  });
+}
+async function doResetHwid(key) {
+  const r=await api('/reset-hwid','POST',{key});
+  r.success?toast('HWID reset','ok'):toast(r.error||'Error','err'); loadKeys(true);
+}
+async function bulkResetHwid() {
+  const keys=[...selected],n=keys.length; let ok=0;
+  for(const k of keys){const r=await api('/reset-hwid','POST',{key:k});if(r.success)ok++;}
+  toast('Reset '+ok+'/'+n+' HWIDs','ok'); clearSel(); loadKeys(true);
+}
+function openExtend(key) {
+  document.getElementById('e-key').value=key;
+  document.getElementById('e-display').value=key;
+  document.getElementById('e-days').value=30;
+  openM('mExtend');
+}
+async function extendKey() {
+  const key=document.getElementById('e-key').value;
+  const days=parseInt(document.getElementById('e-days').value)||30;
+  setLoading('btnExtend',true,'Extending...');
+  const r=await api('/extend','POST',{key,days});
+  setLoading('btnExtend',false,'Extend');
+  if(r.success){toast('+'+days+' days added','ok');closeM('mExtend');loadKeys(true);}
+  else toast(r.error||'Error','err');
+}
+function toggleExpWrap(){document.getElementById('c-daysWrap').style.display=document.getElementById('c-exp').value==='days'?'block':'none';}
+function toggleGbWrap(){document.getElementById('gb-daysWrap').style.display=document.getElementById('gb-exp').value==='days'?'block':'none';}
+
+async function createKey() {
+  const exp=document.getElementById('c-exp').value;
+  const days=exp==='days'?(parseInt(document.getElementById('c-days').value)||30):null;
+  const tag=document.getElementById('c-tag').value.trim()||null;
+  setLoading('btnCreate',true,'Generating...');
+  const r=await api('/create','POST',{days,discordTag:tag});
+  setLoading('btnCreate',false,'Generate');
+  if(r.success){
+    await navigator.clipboard.writeText(r.key).catch(()=>{});
+    toast('Key created + copied: '+r.key.slice(0,16)+'…','ok');
+    closeM('mCreate'); loadKeys(true);
+  } else toast(r.error||'Error','err');
+}
+
+async function bulkGenerate() {
+  const count=parseInt(document.getElementById('gb-count').value)||5;
+  const exp=document.getElementById('gb-exp').value;
+  const days=exp==='days'?(parseInt(document.getElementById('gb-days').value)||30):null;
+  setLoading('btnGenBulk',true,'Generating...');
+  const keys=[];
+  for(let i=0;i<count;i++){
+    const r=await api('/create','POST',{days});
+    if(r.success) keys.push(r.key);
+  }
+  setLoading('btnGenBulk',false,'Generate');
+  if(keys.length){
+    document.getElementById('bulkResultText').value=keys.join('\n');
+    closeM('mGenBulk'); openM('mBulkResult');
+    loadKeys(true);
+  } else toast('Generation failed','err');
+}
+
+async function copyBulkResult() {
+  const txt=document.getElementById('bulkResultText').value;
+  await navigator.clipboard.writeText(txt).catch(()=>{});
+  toast('Copied '+txt.split('\n').length+' keys','ok');
+}
+
+// ── Utils ─────────────────────────────────────────────────────────
+async function copyKey(key) {
+  try{await navigator.clipboard.writeText(key);toast('Copied!','info');}
+  catch{toast('Copy failed','err');}
+}
+function exportCSV() {
+  const h=['Key','Discord Tag','Discord ID','Status','Expires','HWID','Created'];
+  const rows=allKeys.map(k=>[
+    k.key,k.discordTag||'',k.discordId||'',
+    k.expired?'Expired':k.discordId?'Active':'Unlinked',
+    k.expiry?new Date(k.expiry*1000).toISOString():'Lifetime',
+    k.hwid?'Locked':'Unlocked',
+    k.createdAt?new Date(k.createdAt*1000).toISOString():''
+  ].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(','));
+  const csv=[h.join(','),...rows].join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='smvll-keys-'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click(); toast('CSV exported','ok');
+}
+function fmtDate(ts){if(!ts)return'—';const d=new Date(ts*1000);return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'});}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function setLoading(id,on,txt){const b=document.getElementById(id);b.disabled=on;b.innerHTML=on?'<span class="spinner"></span> '+txt:txt;}
+
+// ── Confirm helper ────────────────────────────────────────────────
+function confirm2(title,body,okLabel,type,cb) {
+  document.getElementById('confirmTitle').textContent=title;
+  document.getElementById('confirmBody').textContent=body;
+  const ok=document.getElementById('confirmOk');
+  ok.textContent=okLabel;
+  ok.className='btn btn-'+(type==='danger'?'danger':'warn');
+  ok.onclick=()=>{closeM('mConfirm');cb();};
+  openM('mConfirm');
+}
+
+// ── Modals ────────────────────────────────────────────────────────
+function openM(id){document.getElementById(id).classList.add('on');}
+function closeM(id){document.getElementById(id).classList.remove('on');}
+document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)closeM(o.id);}));
+document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.overlay.on').forEach(o=>closeM(o.id));});
+
+// ── Toast ─────────────────────────────────────────────────────────
+function toast(msg,type){
+  const icons={ok:'&#10003;',err:'&#10005;',info:'&#8505;',warn:'&#9888;'};
+  const cls={ok:'ts-ok',err:'ts-err',info:'ts-info',warn:'ts-warn'};
+  const tc=document.getElementById('tc');
+  const el=document.createElement('div');
+  el.className='toast '+(cls[type]||'ts-ok');
+  el.innerHTML='<span>'+icons[type||'ok']+'</span><span>'+msg+'</span>';
+  tc.appendChild(el);
+  setTimeout(()=>{el.classList.add('out');setTimeout(()=>el.remove(),180);},3500);
+}
+
+// ── Views ─────────────────────────────────────────────────────────
+function setView(v,btn) {
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  document.getElementById('view-keys').style.display=v==='keys'?'block':'none';
+  document.getElementById('view-stats').style.display=v==='stats'?'block':'none';
+  document.getElementById('view-title').textContent=v==='keys'?'Key Management':'Analytics';
+}
+
+// ── Init ──────────────────────────────────────────────────────────
+loadKeys();
+setInterval(()=>loadKeys(true), 30000);
+</script>
+</body>
+</html>
