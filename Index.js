@@ -317,6 +317,37 @@ const commands = [
         .setName('keys')
         .setDescription('Voir toutes les clés enregistrées'),
 
+    new SlashCommandBuilder()
+        .setName('genkey')
+        .setDescription('Générer une ou plusieurs clés sans les lier à un Discord')
+        .addIntegerOption(o => o.setName('quantite').setDescription('Nombre de clés (défaut: 1, max: 50)').setRequired(false))
+        .addStringOption(o => o.setName('duree').setDescription('Durée (ex: 1w, 1mo, lifetime). Défaut: lifetime').setRequired(false)),
+
+    new SlashCommandBuilder()
+        .setName('key-info')
+        .setDescription('Voir les détails complets d\'une clé')
+        .addStringOption(o => o.setName('key').setDescription('Clé SMVLL-XXXXX-XXXXX-XXXXX').setRequired(true)),
+
+    new SlashCommandBuilder()
+        .setName('key-extend')
+        .setDescription('Rallonger l\'accès d\'un buyer Discord')
+        .addUserOption(o => o.setName('user').setDescription('Membre Discord').setRequired(true))
+        .addStringOption(o => o.setName('duree').setDescription('Durée à ajouter (ex: 1w, 1mo, lifetime)').setRequired(true)),
+
+    new SlashCommandBuilder()
+        .setName('key-revoke')
+        .setDescription('Révoquer la clé d\'un buyer et retirer son rôle')
+        .addUserOption(o => o.setName('user').setDescription('Membre Discord').setRequired(true)),
+
+    new SlashCommandBuilder()
+        .setName('hwid-reset')
+        .setDescription('Reset le HWID d\'un buyer (admin)')
+        .addUserOption(o => o.setName('user').setDescription('Membre Discord').setRequired(true)),
+
+    new SlashCommandBuilder()
+        .setName('stats')
+        .setDescription('Stats rapides des clés et du bot'),
+
 ].map(c => c.toJSON());
 
 // ─── Ready ─────────────────────────────────────────────────────────────
@@ -535,21 +566,17 @@ client.on('interactionCreate', async interaction => {
         if (cmd === 'help') {
             await interaction.editReply({
                 embeds: [new EmbedBuilder()
-                    .setTitle("📖 Guide d'utilisation — SMVLL HUB Bot")
+                    .setTitle("📖 Guide — SMVLL HUB Bot")
                     .addFields(
-                        { name: "⏱️ Secondes",    value: "`1s`, `30s`",    inline: true },
-                        { name: "⏱️ Minutes",     value: "`1m`, `15m`",    inline: true },
-                        { name: "⏱️ Heures",      value: "`1h`, `12h`",    inline: true },
-                        { name: "📅 Jours",       value: "`1d`, `3d`",     inline: true },
-                        { name: "📅 Semaines",    value: "`1w`, `2w`",     inline: true },
-                        { name: "📅 Années",      value: "`1y`",           inline: true },
-                        { name: "♾️ À vie",       value: "`lifetime`",     inline: false },
-                        { name: "━━━━━━━━━━━━━━━━", value: "**Commandes**", inline: false },
-                        { name: "📋 Whitelist",   value: "`/wl-add` `/wl-remove` `/wl-edit` `/wl-renew` `/wl-check` `/wl-list` `/wl-stats` `/wl-expire-soon` `/wl-clear` `/wl-purge-expired` `/wl-import` `/wl-search` `/wl-transfer` `/wl-batch-remove` `/wl-export` `/wl-renew-expired`", inline: false },
-                        { name: "🚫 Blacklist",   value: "`/bl-add` `/bl-remove` `/bl-list` `/bl-check` `/bl-clear` `/bl-import`", inline: false },
-                        { name: "📨 Messages",    value: "`/dmall` `/announce` `/dm` `/test-dm`",     inline: false },
-                        { name: "🔑 Clés",        value: "`/sell` `/get-script` `/reset-hwid` `/my-stats` `/keys`", inline: false },
-                        { name: "🔧 Utilitaires", value: "`/ping` `/botinfo` `/status` `/free4all`",  inline: false }
+                        { name: "⏱️ Formats de durée", value: "`1s` `1m` `1h` `1d` `1w` `1mo` `1y` `lifetime`", inline: false },
+                        { name: "━━━━━━━━━━━━━━━━", value: "**Commandes admin**", inline: false },
+                        { name: "💰 Ventes",      value: "`/sell` — crée une clé liée à un Discord\n`/genkey` — génère des clés non liées", inline: false },
+                        { name: "🔑 Gestion clés", value: "`/key-info` — détails d'une clé\n`/key-extend` — rallonger l'accès d'un buyer\n`/key-revoke` — révoquer la clé d'un buyer\n`/keys` — liste toutes les clés", inline: false },
+                        { name: "🖥️ HWID",        value: "`/hwid-reset` — reset le HWID d'un buyer (admin)", inline: false },
+                        { name: "📨 Messages",     value: "`/dmall` `/dm` `/announce` `/test-dm`", inline: false },
+                        { name: "🔧 Utilitaires",  value: "`/stats` `/ping` `/botinfo` `/panel`", inline: false },
+                        { name: "━━━━━━━━━━━━━━━━", value: "**Commandes buyers**", inline: false },
+                        { name: "👤 Self-service",  value: "`/get-script` `/reset-hwid` `/my-stats`\nOu via les boutons du **panel**", inline: false }
                     )
                     .setColor(BLUE)
                     .setFooter({ text: "SMVLL HUB • HS CORP" })
@@ -971,6 +998,219 @@ client.on('interactionCreate', async interaction => {
                     .setColor(GREEN)
                     .setFooter({ text: "SMVLL HUB • HS CORP" })
                     .setTimestamp()
+                ]
+            });
+        }
+
+        else if (cmd === 'genkey') {
+            const qty   = Math.min(interaction.options.getInteger('quantite') || 1, 50);
+            const duree = interaction.options.getString('duree') || 'lifetime';
+
+            if (duree !== 'lifetime' && !parseDuration(duree)) {
+                return interaction.editReply({ embeds: [new EmbedBuilder().setDescription(`❌ Durée invalide : \`${duree}\`. Ex: \`1w\`, \`1mo\`, \`lifetime\``).setColor(RED)] });
+            }
+
+            const { data: keys, sha } = await getKeysData();
+            const now    = Math.floor(Date.now() / 1000);
+            const expiry = duree === 'lifetime' ? null : now + Math.floor(parseDuration(duree) / 1000);
+            const generated = [];
+
+            for (let i = 0; i < qty; i++) {
+                const key = generateKey();
+                keys[key] = { discordId: null, discordTag: null, expiry, hwid: null, createdAt: now };
+                generated.push(key);
+            }
+            await saveKeysData(keys, sha);
+
+            const expiryStr = expiry ? `<t:${expiry}:R>` : '♾️ Lifetime';
+            const list = generated.map(k => `\`${k}\``).join('\n');
+
+            await interaction.editReply({
+                embeds: [new EmbedBuilder()
+                    .setTitle(`🔑 ${qty} clé(s) générée(s)`)
+                    .setDescription(list)
+                    .addFields({ name: '⏱️ Expire', value: expiryStr, inline: true })
+                    .setColor(GREEN).setFooter({ text: 'SMVLL HUB • HS CORP' }).setTimestamp()
+                ]
+            });
+            sendLog(`🔑 ${qty} clé(s) générée(s)`, [
+                { name: '🔢 Quantité', value: `${qty}`,                 inline: true },
+                { name: '⏱️ Expire',  value: expiryStr,                 inline: true },
+                { name: '👮 Par',      value: interaction.user.tag,      inline: true }
+            ], GREEN);
+        }
+
+        else if (cmd === 'key-info') {
+            const key     = interaction.options.getString('key').trim().toUpperCase();
+            const { data: keys } = await getKeysData();
+            const keyData = keys[key];
+
+            if (!keyData) return interaction.editReply({ embeds: [new EmbedBuilder().setDescription(`❌ Clé \`${key}\` introuvable.`).setColor(RED)] });
+
+            const now     = Math.floor(Date.now() / 1000);
+            const expired = keyData.expiry && keyData.expiry < now;
+            const expiryStr = keyData.expiry
+                ? (expired ? `⛔ Expiré (<t:${keyData.expiry}:R>)` : `<t:${keyData.expiry}:R>`)
+                : '♾️ Lifetime';
+
+            await interaction.editReply({
+                embeds: [new EmbedBuilder()
+                    .setTitle('🔍 Key Info')
+                    .addFields(
+                        { name: '🔑 Key',      value: `\`${key}\``,                                                          inline: false },
+                        { name: '👤 Discord',  value: keyData.discordTag ? `${keyData.discordTag}\n\`${keyData.discordId}\`` : '⚠️ Non lié', inline: true },
+                        { name: '📌 Status',   value: expired ? '⛔ Expiré' : keyData.discordId ? '✅ Actif' : '🟡 Non rédimé', inline: true },
+                        { name: '⏱️ Expire',  value: expiryStr,                                                               inline: true },
+                        { name: '🖥️ HWID',    value: keyData.hwid ? `\`${keyData.hwid.slice(0, 24)}...\`` : '🔓 Non lockée', inline: true },
+                        { name: '📅 Créé',     value: `<t:${keyData.createdAt}:D>`,                                           inline: true }
+                    )
+                    .setColor(expired ? RED : keyData.discordId ? GREEN : YELLOW)
+                    .setFooter({ text: 'SMVLL HUB • HS CORP' }).setTimestamp()
+                ]
+            });
+        }
+
+        else if (cmd === 'key-extend') {
+            const target = interaction.options.getUser('user');
+            const duree  = interaction.options.getString('duree');
+
+            if (duree !== 'lifetime' && !parseDuration(duree)) {
+                return interaction.editReply({ embeds: [new EmbedBuilder().setDescription(`❌ Durée invalide : \`${duree}\``).setColor(RED)] });
+            }
+
+            const { data: keys, sha } = await getKeysData();
+            const entry = findKeyByDiscordId(keys, target.id);
+            if (!entry) return interaction.editReply({ embeds: [new EmbedBuilder().setDescription(`❌ Aucune clé liée à **${target.tag}**.`).setColor(RED)] });
+
+            const [key, keyData] = entry;
+            const now = Math.floor(Date.now() / 1000);
+
+            if (duree === 'lifetime') {
+                keyData.expiry = null;
+            } else {
+                const addSec = Math.floor(parseDuration(duree) / 1000);
+                const base   = (keyData.expiry && keyData.expiry > now) ? keyData.expiry : now;
+                keyData.expiry = base + addSec;
+            }
+
+            keys[key] = keyData;
+            await saveKeysData(keys, sha);
+
+            const expiryStr = keyData.expiry ? `<t:${keyData.expiry}:R>` : '♾️ Lifetime';
+            await interaction.editReply({
+                embeds: [new EmbedBuilder()
+                    .setTitle('✅ Accès étendu')
+                    .addFields(
+                        { name: '👤 Discord',             value: target.tag, inline: true },
+                        { name: '⏱️ Ajouté',             value: duree,      inline: true },
+                        { name: '📅 Nouvelle expiration', value: expiryStr,  inline: true }
+                    )
+                    .setColor(GREEN).setFooter({ text: 'SMVLL HUB • HS CORP' }).setTimestamp()
+                ]
+            });
+            sendLog('⏱️ Key étendue', [
+                { name: '👤 Discord', value: target.tag,           inline: true },
+                { name: '⏱️ +Durée', value: duree,                 inline: true },
+                { name: '📅 Expire',  value: expiryStr,             inline: true },
+                { name: '👮 Par',     value: interaction.user.tag,  inline: true }
+            ], BLUE);
+        }
+
+        else if (cmd === 'key-revoke') {
+            const target = interaction.options.getUser('user');
+            const { data: keys, sha } = await getKeysData();
+            const entry = findKeyByDiscordId(keys, target.id);
+
+            if (!entry) return interaction.editReply({ embeds: [new EmbedBuilder().setDescription(`❌ Aucune clé liée à **${target.tag}**.`).setColor(RED)] });
+
+            const [key] = entry;
+            delete keys[key];
+            await saveKeysData(keys, sha);
+
+            if (BUYER_ROLE_ID) {
+                const member = await interaction.guild.members.fetch(target.id).catch(() => null);
+                if (member) await member.roles.remove(BUYER_ROLE_ID).catch(() => {});
+            }
+
+            await interaction.editReply({
+                embeds: [new EmbedBuilder()
+                    .setTitle('🗑️ Clé révoquée')
+                    .addFields(
+                        { name: '👤 Discord', value: target.tag,    inline: true },
+                        { name: '🔑 Clé',     value: `\`${key}\``, inline: true }
+                    )
+                    .setColor(RED).setFooter({ text: 'SMVLL HUB • HS CORP' }).setTimestamp()
+                ]
+            });
+            sendLog('🗑️ Key révoquée', [
+                { name: '👤 Discord', value: target.tag,           inline: true },
+                { name: '🔑 Clé',    value: `\`${key}\``,          inline: true },
+                { name: '👮 Par',    value: interaction.user.tag,   inline: true }
+            ], RED);
+        }
+
+        else if (cmd === 'hwid-reset') {
+            const target = interaction.options.getUser('user');
+            const { data: keys, sha } = await getKeysData();
+            const entry = findKeyByDiscordId(keys, target.id);
+
+            if (!entry) return interaction.editReply({ embeds: [new EmbedBuilder().setDescription(`❌ Aucune clé liée à **${target.tag}**.`).setColor(RED)] });
+
+            const [key, keyData] = entry;
+            if (!keyData.hwid) return interaction.editReply({ embeds: [new EmbedBuilder().setDescription(`⚠️ Le HWID de **${target.tag}** n'est pas encore lockée.`).setColor(YELLOW)] });
+
+            keyData.hwid = null;
+            keys[key] = keyData;
+            await saveKeysData(keys, sha);
+
+            await interaction.editReply({
+                embeds: [new EmbedBuilder()
+                    .setTitle('🔓 HWID Reset (Admin)')
+                    .addFields({ name: '👤 Discord', value: target.tag, inline: true })
+                    .setColor(GREEN).setFooter({ text: 'SMVLL HUB • HS CORP' }).setTimestamp()
+                ]
+            });
+            sendLog('🔓 HWID reset (admin)', [
+                { name: '👤 Target', value: target.tag,           inline: true },
+                { name: '👮 Par',    value: interaction.user.tag,  inline: true }
+            ], ORANGE);
+        }
+
+        else if (cmd === 'stats') {
+            const { data: keys } = await getKeysData();
+            const entries = Object.values(keys);
+            const now     = Math.floor(Date.now() / 1000);
+
+            const total      = entries.length;
+            const active     = entries.filter(k => !k.expiry || k.expiry > now).length;
+            const expired    = entries.filter(k => k.expiry && k.expiry < now).length;
+            const linked     = entries.filter(k => k.discordId).length;
+            const unlinked   = entries.filter(k => !k.discordId).length;
+            const hwidLocked = entries.filter(k => k.hwid).length;
+            const lifetime   = entries.filter(k => !k.expiry).length;
+
+            const uptime = process.uptime();
+            const d   = Math.floor(uptime / 86400);
+            const h   = Math.floor((uptime % 86400) / 3600);
+            const m   = Math.floor((uptime % 3600) / 60);
+            const mem = (process.memoryUsage().heapUsed / 1024 / 1024).toFixed(1);
+
+            await interaction.editReply({
+                embeds: [new EmbedBuilder()
+                    .setTitle('📊 SMVLL HUB — Stats')
+                    .addFields(
+                        { name: '🔑 Total clés',    value: `${total}`,            inline: true },
+                        { name: '✅ Actives',        value: `${active}`,           inline: true },
+                        { name: '⛔ Expirées',       value: `${expired}`,          inline: true },
+                        { name: '🔗 Liées Discord', value: `${linked}`,           inline: true },
+                        { name: '⚠️ Non liées',     value: `${unlinked}`,         inline: true },
+                        { name: '🔒 HWID lockées',  value: `${hwidLocked}`,       inline: true },
+                        { name: '♾️ Lifetime',      value: `${lifetime}`,         inline: true },
+                        { name: '⏱️ Uptime',        value: `${d}j ${h}h ${m}m`,  inline: true },
+                        { name: '🧠 RAM',            value: `${mem} MB`,           inline: true },
+                        { name: '📡 Ping',           value: `${client.ws.ping}ms`, inline: true }
+                    )
+                    .setColor(BLUE).setFooter({ text: 'SMVLL HUB • HS CORP' }).setTimestamp()
                 ]
             });
         }
