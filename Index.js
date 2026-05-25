@@ -1,7 +1,8 @@
 const {
     Client, GatewayIntentBits, EmbedBuilder, AttachmentBuilder,
     REST, Routes, SlashCommandBuilder,
-    ButtonBuilder, ButtonStyle, ActionRowBuilder
+    ButtonBuilder, ButtonStyle, ActionRowBuilder,
+    ModalBuilder, TextInputBuilder, TextInputStyle
 } = require('discord.js');
 const axios = require('axios');
 const ms    = require('ms');
@@ -567,8 +568,68 @@ client.on('interactionCreate', async interaction => {
     if (interaction.isButton()) {
         const map = { btn_get_script: 'get-script', btn_reset_hwid: 'reset-hwid', btn_my_stats: 'my-stats' };
         if (map[interaction.customId]) return handleBuyerAction(interaction, map[interaction.customId]);
+
+        if (interaction.customId === 'btn_redeem_key') {
+            const modal = new ModalBuilder()
+                .setCustomId('modal_redeem_key')
+                .setTitle('🔑 Redeem your key');
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(
+                    new TextInputBuilder()
+                        .setCustomId('key_input')
+                        .setLabel('Enter your key')
+                        .setStyle(TextInputStyle.Short)
+                        .setPlaceholder('SMVLL-XXXXX-XXXXX-XXXXX')
+                        .setMinLength(10)
+                        .setRequired(true)
+                )
+            );
+            return interaction.showModal(modal);
+        }
         return;
     }
+
+    if (interaction.isModalSubmit() && interaction.customId === 'modal_redeem_key') {
+        await interaction.deferReply({ ephemeral: true });
+        const key = interaction.fields.getTextInputValue('key_input').trim().toUpperCase();
+        try {
+            const { data: keys, sha } = await getKeysData();
+            const keyData = keys[key];
+            if (!keyData) return interaction.editReply({ embeds: [new EmbedBuilder().setDescription('❌ Key not found. Check your key and try again.').setColor(RED)] });
+
+            const now = Math.floor(Date.now() / 1000);
+            if (keyData.expiry && keyData.expiry < now) return interaction.editReply({ embeds: [new EmbedBuilder().setDescription('⛔ This key has expired.').setColor(RED)] });
+
+            if (keyData.discordId && keyData.discordId !== interaction.user.id) return interaction.editReply({ embeds: [new EmbedBuilder().setDescription('⛔ This key is already linked to another account.').setColor(RED)] });
+
+            if (keyData.discordId === interaction.user.id) return interaction.editReply({ embeds: [new EmbedBuilder().setDescription('✅ This key is already linked to your account.').setColor(GREEN)] });
+
+            keyData.discordId  = interaction.user.id;
+            keyData.discordTag = interaction.user.tag;
+            keys[key] = keyData;
+            await saveKeysData(keys, sha);
+
+            if (BUYER_ROLE_ID) {
+                const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+                if (member) await member.roles.add(BUYER_ROLE_ID).catch(() => {});
+            }
+
+            await interaction.editReply({ embeds: [new EmbedBuilder()
+                .setTitle('✅ Key redeemed!')
+                .setDescription(`Your key \`${key}\` is now linked to your account.\nClick **🔑 Get Script** to get your script.`)
+                .addFields({ name: '⏱️ Expires', value: keyData.expiry ? `<t:${keyData.expiry}:R>` : '♾️ Lifetime', inline: true })
+                .setColor(GREEN).setFooter({ text: 'SMVLL HUB • HS CORP' }).setTimestamp()
+            ] });
+            sendLog('🎟️ Key redeemed', [
+                { name: '👤 Discord', value: interaction.user.tag, inline: true },
+                { name: '🔑 Key',     value: `\`${key}\``,         inline: true },
+            ], GREEN);
+        } catch (e) {
+            interaction.editReply({ embeds: [new EmbedBuilder().setDescription(`❌ Error: \`${e.message}\``).setColor(RED)] });
+        }
+        return;
+    }
+
     if (!interaction.isChatInputCommand()) return;
 
     const cmd = interaction.commandName;
@@ -1952,18 +2013,10 @@ client.on('interactionCreate', async interaction => {
             const imageUrl = interaction.options.getString('image') || client.user.displayAvatarURL({ size: 256 });
 
             const row = new ActionRowBuilder().addComponents(
-                new ButtonBuilder()
-                    .setCustomId('btn_get_script')
-                    .setLabel('🔑 Get Script')
-                    .setStyle(ButtonStyle.Success),
-                new ButtonBuilder()
-                    .setCustomId('btn_reset_hwid')
-                    .setLabel('🔄 Reset HWID')
-                    .setStyle(ButtonStyle.Secondary),
-                new ButtonBuilder()
-                    .setCustomId('btn_my_stats')
-                    .setLabel('📊 My Stats')
-                    .setStyle(ButtonStyle.Secondary),
+                new ButtonBuilder().setCustomId('btn_get_script').setLabel('🔑 Get Script').setStyle(ButtonStyle.Success),
+                new ButtonBuilder().setCustomId('btn_reset_hwid').setLabel('🔄 Reset HWID').setStyle(ButtonStyle.Secondary),
+                new ButtonBuilder().setCustomId('btn_my_stats').setLabel('📊 My Stats').setStyle(ButtonStyle.Secondary),
+                new ButtonBuilder().setCustomId('btn_redeem_key').setLabel('🎟️ Redeem Key').setStyle(ButtonStyle.Primary),
             );
 
             await channel.send({
@@ -2248,6 +2301,314 @@ http.createServer(async (req, res) => {
     if (req.method === 'GET' && parsedUrl.pathname === '/health') {
         res.writeHead(200, { 'Content-Type': 'text/plain' });
         return res.end('OK');
+    }
+
+    // ── Dashboard auth helper ─────────────────────────────────────
+    const DASH_TOKEN = process.env.DASHBOARD_TOKEN || '';
+    const reqToken   = parsedUrl.searchParams.get('token') || (req.headers['x-dashboard-token'] || '');
+    const authOk     = DASH_TOKEN && reqToken === DASH_TOKEN;
+
+    // ── Dashboard API ─────────────────────────────────────────────
+    if (parsedUrl.pathname.startsWith('/api/dash/')) {
+        res.setHeader('Content-Type', 'application/json');
+        if (!authOk) { res.writeHead(401); return res.end(JSON.stringify({ error: 'Unauthorized' })); }
+
+        if (req.method === 'GET' && parsedUrl.pathname === '/api/dash/keys') {
+            const { data: keys } = await getKeysData().catch(() => ({ data: {} }));
+            const now = Math.floor(Date.now() / 1000);
+            const list = Object.entries(keys).map(([k, v]) => ({
+                key:       k,
+                discordId: v.discordId  || null,
+                discordTag:v.discordTag || null,
+                hwid:      v.hwid       || null,
+                expiry:    v.expiry     || null,
+                createdAt: v.createdAt  || null,
+                expired:   v.expiry ? v.expiry < now : false,
+            }));
+            res.writeHead(200);
+            return res.end(JSON.stringify({ success: true, keys: list }));
+        }
+
+        // Parse body for POST/DELETE
+        const body = await new Promise(resolve => {
+            let d = '';
+            req.on('data', c => d += c);
+            req.on('end', () => { try { resolve(JSON.parse(d)); } catch { resolve({}); } });
+        });
+
+        if (req.method === 'POST' && parsedUrl.pathname === '/api/dash/reset-hwid') {
+            const { key } = body;
+            const { data: keys, sha } = await getKeysData();
+            if (!keys[key]) { res.writeHead(404); return res.end(JSON.stringify({ error: 'Key not found' })); }
+            keys[key].hwid = null;
+            await saveKeysData(keys, sha);
+            res.writeHead(200); return res.end(JSON.stringify({ success: true }));
+        }
+
+        if (req.method === 'DELETE' && parsedUrl.pathname === '/api/dash/key') {
+            const key = body.key || parsedUrl.searchParams.get('key');
+            const { data: keys, sha } = await getKeysData();
+            if (!keys[key]) { res.writeHead(404); return res.end(JSON.stringify({ error: 'Key not found' })); }
+            delete keys[key];
+            await saveKeysData(keys, sha);
+            res.writeHead(200); return res.end(JSON.stringify({ success: true }));
+        }
+
+        if (req.method === 'POST' && parsedUrl.pathname === '/api/dash/extend') {
+            const { key, days } = body;
+            const { data: keys, sha } = await getKeysData();
+            if (!keys[key]) { res.writeHead(404); return res.end(JSON.stringify({ error: 'Key not found' })); }
+            const now = Math.floor(Date.now() / 1000);
+            const base = (keys[key].expiry && keys[key].expiry > now) ? keys[key].expiry : now;
+            keys[key].expiry = base + (parseInt(days) || 30) * 86400;
+            await saveKeysData(keys, sha);
+            res.writeHead(200); return res.end(JSON.stringify({ success: true, expiry: keys[key].expiry }));
+        }
+
+        if (req.method === 'POST' && parsedUrl.pathname === '/api/dash/create') {
+            const { days, discordTag } = body;
+            const { data: keys, sha } = await getKeysData();
+            const newKey = (() => {
+                const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+                const seg = () => Array.from({length:5}, () => chars[Math.floor(Math.random()*chars.length)]).join('');
+                return `SMVLL-${seg()}-${seg()}-${seg()}`;
+            })();
+            const now = Math.floor(Date.now() / 1000);
+            keys[newKey] = {
+                discordId:  null,
+                discordTag: discordTag || null,
+                expiry:     days ? now + parseInt(days) * 86400 : null,
+                hwid:       null,
+                createdAt:  now,
+            };
+            await saveKeysData(keys, sha);
+            res.writeHead(200); return res.end(JSON.stringify({ success: true, key: newKey }));
+        }
+
+        res.writeHead(404); return res.end(JSON.stringify({ error: 'Not found' }));
+    }
+
+    // ── Dashboard HTML ────────────────────────────────────────────
+    if (req.method === 'GET' && parsedUrl.pathname === '/dashboard') {
+        if (!authOk) {
+            res.writeHead(200, { 'Content-Type': 'text/html' });
+            return res.end(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>SMVLL HUB — Login</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0d0d0d;color:#fff;font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh}
+.box{background:#161616;border:1px solid #00ff64;border-radius:12px;padding:40px;text-align:center;width:340px}
+h1{color:#00ff64;margin-bottom:24px;font-size:1.4rem}input{width:100%;padding:10px 14px;background:#0d0d0d;border:1px solid #333;border-radius:8px;color:#fff;font-size:1rem;margin-bottom:16px}
+button{width:100%;padding:10px;background:#00ff64;color:#000;font-weight:700;border:none;border-radius:8px;cursor:pointer;font-size:1rem}
+button:hover{background:#00cc50}</style></head><body>
+<div class="box"><h1>🟢 SMVLL HUB</h1>
+<input type="password" id="t" placeholder="Dashboard token" onkeydown="if(event.key==='Enter')login()">
+<button onclick="login()">Login</button></div>
+<script>function login(){const t=document.getElementById('t').value;if(t)window.location.href='/dashboard?token='+encodeURIComponent(t);}</script>
+</html>`);
+        }
+
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        return res.end(`<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SMVLL HUB — Dashboard</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0d0d0d;color:#e0e0e0;font-family:system-ui,-apple-system,sans-serif;min-height:100vh}
+header{background:#111;border-bottom:1px solid #00ff6430;padding:16px 32px;display:flex;align-items:center;gap:12px}
+header h1{color:#00ff64;font-size:1.3rem}header span{color:#555;font-size:.85rem;margin-left:auto}
+.container{padding:32px;max-width:1400px;margin:0 auto}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:32px}
+.stat{background:#161616;border:1px solid #222;border-radius:10px;padding:20px;text-align:center}
+.stat .n{font-size:2rem;font-weight:700;color:#00ff64}.stat .l{font-size:.8rem;color:#666;margin-top:4px}
+.toolbar{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:center}
+.toolbar input{background:#161616;border:1px solid #333;border-radius:8px;padding:8px 14px;color:#fff;font-size:.9rem;width:260px}
+.toolbar input:focus{outline:none;border-color:#00ff64}
+.btn{padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:.85rem;font-weight:600;transition:.15s}
+.btn-green{background:#00ff64;color:#000}.btn-green:hover{background:#00cc50}
+.btn-blue{background:#4488ff;color:#fff}.btn-blue:hover{background:#2266dd}
+.btn-red{background:#ff4444;color:#fff}.btn-red:hover{background:#cc2222}
+.btn-orange{background:#ff8800;color:#fff}.btn-orange:hover{background:#cc6600}
+.btn-sm{padding:4px 10px;font-size:.78rem}
+table{width:100%;border-collapse:collapse;background:#111;border-radius:12px;overflow:hidden}
+thead{background:#161616}th{padding:12px 16px;text-align:left;font-size:.78rem;color:#666;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+td{padding:11px 16px;border-bottom:1px solid #1a1a1a;font-size:.85rem}
+tr:last-child td{border-bottom:none}tr:hover td{background:#141414}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:600}
+.badge-green{background:#00ff6420;color:#00ff64;border:1px solid #00ff6440}
+.badge-red{background:#ff444420;color:#ff4444;border:1px solid #ff444440}
+.badge-orange{background:#ff880020;color:#ff8800;border:1px solid #ff880040}
+.badge-gray{background:#33333350;color:#888;border:1px solid #333}
+.key-val{font-family:monospace;font-size:.8rem;color:#aaa}
+.modal-bg{display:none;position:fixed;inset:0;background:#000a;z-index:100;align-items:center;justify-content:center}
+.modal-bg.open{display:flex}
+.modal{background:#161616;border:1px solid #333;border-radius:12px;padding:28px;width:380px;max-width:90vw}
+.modal h2{color:#00ff64;margin-bottom:20px;font-size:1.1rem}
+.modal label{display:block;font-size:.82rem;color:#888;margin-bottom:6px}
+.modal input,.modal select{width:100%;background:#0d0d0d;border:1px solid #333;border-radius:8px;padding:8px 12px;color:#fff;font-size:.9rem;margin-bottom:14px}
+.modal input:focus,.modal select:focus{outline:none;border-color:#00ff64}
+.modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:4px}
+.toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:8px;font-size:.9rem;font-weight:600;z-index:200;opacity:0;transition:.3s}
+.toast.show{opacity:1}
+.toast-ok{background:#00ff6420;border:1px solid #00ff64;color:#00ff64}
+.toast-err{background:#ff444420;border:1px solid #ff4444;color:#ff4444}
+</style></head><body>
+<header><h1>🟢 SMVLL HUB</h1><div style="color:#00ff64;font-size:.85rem;margin-left:12px">Dashboard</div>
+<span id="lastRefresh">Loading...</span></header>
+<div class="container">
+  <div class="stats">
+    <div class="stat"><div class="n" id="s-total">—</div><div class="l">Total keys</div></div>
+    <div class="stat"><div class="n" id="s-active">—</div><div class="l">Active</div></div>
+    <div class="stat"><div class="n" id="s-expired">—</div><div class="l">Expired</div></div>
+    <div class="stat"><div class="n" id="s-linked">—</div><div class="l">Linked</div></div>
+    <div class="stat"><div class="n" id="s-hwid">—</div><div class="l">HWID locked</div></div>
+  </div>
+  <div class="toolbar">
+    <input id="search" placeholder="🔍 Search key, Discord tag..." oninput="renderTable()">
+    <button class="btn btn-green" onclick="openCreateModal()">+ New key</button>
+    <button class="btn btn-blue" onclick="loadKeys()">↻ Refresh</button>
+  </div>
+  <table id="keyTable">
+    <thead><tr>
+      <th>Key</th><th>Discord</th><th>Status</th><th>Expires</th><th>HWID</th><th>Created</th><th>Actions</th>
+    </tr></thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
+
+<!-- Create modal -->
+<div class="modal-bg" id="createModal">
+  <div class="modal">
+    <h2>+ Generate new key</h2>
+    <label>Expiration (days, blank = lifetime)</label>
+    <input type="number" id="c-days" placeholder="30">
+    <label>Discord tag (optional)</label>
+    <input type="text" id="c-tag" placeholder="user#0000">
+    <div class="modal-footer">
+      <button class="btn btn-red btn-sm" onclick="closeModal('createModal')">Cancel</button>
+      <button class="btn btn-green btn-sm" onclick="createKey()">Generate</button>
+    </div>
+  </div>
+</div>
+
+<!-- Extend modal -->
+<div class="modal-bg" id="extendModal">
+  <div class="modal">
+    <h2>⏱️ Extend key</h2>
+    <label>Days to add</label>
+    <input type="number" id="e-days" placeholder="30" value="30">
+    <input type="hidden" id="e-key">
+    <div class="modal-footer">
+      <button class="btn btn-red btn-sm" onclick="closeModal('extendModal')">Cancel</button>
+      <button class="btn btn-orange btn-sm" onclick="extendKey()">Extend</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const TOKEN = new URLSearchParams(location.search).get('token') || '';
+let allKeys = [];
+
+function ts(n){ if(!n)return '♾️ Lifetime'; const d=new Date(n*1000); return d.toLocaleDateString()+' '+d.toHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0'); }
+function fmtDate(n){ if(!n)return '—'; const d=new Date(n*1000); return d.toLocaleDateString(); }
+function toast(msg,ok=true){ const t=document.getElementById('toast'); t.textContent=msg; t.className='toast show '+(ok?'toast-ok':'toast-err'); setTimeout(()=>t.className='toast',2500); }
+
+async function api(path, method='GET', body=null){
+  const opts={method, headers:{'Content-Type':'application/json','x-dashboard-token':TOKEN}};
+  if(body) opts.body=JSON.stringify(body);
+  const r=await fetch('/api/dash'+path+'?token='+TOKEN,opts);
+  return r.json();
+}
+
+async function loadKeys(){
+  const r=await api('/keys');
+  if(!r.success){toast('Failed to load keys',false);return;}
+  allKeys=r.keys;
+  const now=Math.floor(Date.now()/1000);
+  document.getElementById('s-total').textContent=allKeys.length;
+  document.getElementById('s-active').textContent=allKeys.filter(k=>!k.expired).length;
+  document.getElementById('s-expired').textContent=allKeys.filter(k=>k.expired).length;
+  document.getElementById('s-linked').textContent=allKeys.filter(k=>k.discordId).length;
+  document.getElementById('s-hwid').textContent=allKeys.filter(k=>k.hwid).length;
+  document.getElementById('lastRefresh').textContent='Last refresh: '+new Date().toLocaleTimeString();
+  renderTable();
+}
+
+function renderTable(){
+  const q=(document.getElementById('search').value||'').toLowerCase();
+  const rows=allKeys.filter(k=>
+    k.key.toLowerCase().includes(q)||
+    (k.discordTag||'').toLowerCase().includes(q)||
+    (k.discordId||'').includes(q)
+  );
+  const tb=document.getElementById('tbody');
+  tb.innerHTML=rows.map(k=>{
+    const status=k.expired
+      ? '<span class="badge badge-red">Expired</span>'
+      : k.discordId
+        ? '<span class="badge badge-green">Active</span>'
+        : '<span class="badge badge-orange">Unlinked</span>';
+    const expiry=k.expiry?fmtDate(k.expiry):'<span style="color:#00ff64">♾️ Lifetime</span>';
+    const hwid=k.hwid
+      ? '<span class="badge badge-green">🔒 Locked</span>'
+      : '<span class="badge badge-gray">Unlocked</span>';
+    const discord=k.discordTag
+      ? k.discordTag+(k.discordId?'<br><span style="font-size:.72rem;color:#555">'+k.discordId+'</span>':'')
+      : '<span style="color:#555">—</span>';
+    return \`<tr>
+      <td><span class="key-val">\${k.key}</span></td>
+      <td>\${discord}</td>
+      <td>\${status}</td>
+      <td>\${expiry}</td>
+      <td>\${hwid}</td>
+      <td>\${fmtDate(k.createdAt)}</td>
+      <td style="display:flex;gap:6px;flex-wrap:wrap">
+        \${k.hwid?'<button class="btn btn-orange btn-sm" onclick="resetHwid(\\''+k.key+'\\')">↺ HWID</button>':''}
+        <button class="btn btn-blue btn-sm" onclick="openExtend(\\''+k.key+'\\')">+ Days</button>
+        <button class="btn btn-red btn-sm" onclick="deleteKey(\\''+k.key+'\\')">🗑</button>
+      </td>
+    </tr>\`;
+  }).join('');
+}
+
+async function resetHwid(key){
+  if(!confirm('Reset HWID for '+key+'?'))return;
+  const r=await api('/reset-hwid','POST',{key});
+  r.success?toast('HWID reset ✓'):toast('Error: '+(r.error||'?'),false);
+  loadKeys();
+}
+
+async function deleteKey(key){
+  if(!confirm('Delete key '+key+'? This cannot be undone.'))return;
+  const r=await api('/key','DELETE',{key});
+  r.success?toast('Key deleted ✓'):toast('Error: '+(r.error||'?'),false);
+  loadKeys();
+}
+
+function openExtend(key){ document.getElementById('e-key').value=key; openModal('extendModal'); }
+async function extendKey(){
+  const key=document.getElementById('e-key').value;
+  const days=parseInt(document.getElementById('e-days').value)||30;
+  const r=await api('/extend','POST',{key,days});
+  r.success?toast('Extended +'+days+' days ✓'):toast('Error: '+(r.error||'?'),false);
+  closeModal('extendModal'); loadKeys();
+}
+
+function openCreateModal(){ document.getElementById('c-days').value=''; document.getElementById('c-tag').value=''; openModal('createModal'); }
+async function createKey(){
+  const days=document.getElementById('c-days').value;
+  const discordTag=document.getElementById('c-tag').value.trim()||null;
+  const r=await api('/create','POST',{days:days?parseInt(days):null,discordTag});
+  if(r.success){ toast('Key created: '+r.key); closeModal('createModal'); loadKeys(); }
+  else toast('Error: '+(r.error||'?'),false);
+}
+
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+
+loadKeys();
+setInterval(loadKeys, 30000);
+</script></body></html>`);
     }
 
     res.writeHead(200);
