@@ -5,5 +5,12 @@
     "expiry": null,
     "hwid": "48d1d0db-2045-4d19-a488-552cd9699e98",
     "createdAt": 1779223588
+  },
+  "SMVLL-JA37V-VP097-VTRRX": {
+    "discordId": "1501592833998585986",
+    "discordTag": "ziad1230665",
+    "expiry": 1779830341,
+    "hwid": null,
+    "createdAt": 1779829441
   }
 }
