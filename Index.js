@@ -423,10 +423,10 @@ async function handleBuyerAction(interaction, action) {
             const [key, keyData] = entry;
             const now = Math.floor(Date.now() / 1000);
             if (keyData.expiry && keyData.expiry < now) return interaction.editReply({ embeds: [new EmbedBuilder().setDescription("⛔ Your key has **expired**. Contact support to renew.").setColor(RED)] });
-            const scriptUrl = process.env.SCRIPT_LOADSTRING_URL || 'CONFIGURE_SCRIPT_LOADSTRING_URL';
-            const script = `SCRIPT_KEY = "${key}"\nloadstring(game:HttpGet("${scriptUrl}"))()`;
+            const scriptLine = process.env.SCRIPT_LOADSTRING_URL || 'CONFIGURE_SCRIPT_LOADSTRING_URL';
+            const script = `SCRIPT_KEY = "${key}"\n${scriptLine}`;
             try {
-                await interaction.user.send({ content: `\`\`\`lua\n${script}\n\`\`\`` });
+                await interaction.user.send({ content: script });
                 await interaction.editReply({ embeds: [new EmbedBuilder().setDescription("✅ Script sent to your DMs!").setColor(GREEN)] });
                 sendLog("📤 Script sent (panel)", [{ name: "👤 Discord", value: interaction.user.tag, inline: true }], BLUE);
             } catch {
@@ -873,10 +873,10 @@ client.on('interactionCreate', async interaction => {
                 });
             }
 
-            const scriptUrl2 = process.env.SCRIPT_LOADSTRING_URL || 'CONFIGURE_SCRIPT_LOADSTRING_URL';
-            const script2 = `SCRIPT_KEY = "${key}"\nloadstring(game:HttpGet("${scriptUrl2}"))()`;
+            const scriptLine2 = process.env.SCRIPT_LOADSTRING_URL || 'CONFIGURE_SCRIPT_LOADSTRING_URL';
+            const script2 = `SCRIPT_KEY = "${key}"\n${scriptLine2}`;
             try {
-                await interaction.user.send({ content: `\`\`\`lua\n${script2}\n\`\`\`` });
+                await interaction.user.send({ content: script2 });
 
                 await interaction.editReply({
                     embeds: [new EmbedBuilder()
