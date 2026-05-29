@@ -348,6 +348,10 @@ const commands = [
         .setName('stats')
         .setDescription('Stats rapides des clés et du bot'),
 
+    new SlashCommandBuilder()
+        .setName('purge-tickets')
+        .setDescription('Supprimer tous les salons ticket-XXXX et closed-XXXX'),
+
 ].map(c => c.toJSON());
 
 // ─── Ready ─────────────────────────────────────────────────────────────
@@ -1213,6 +1217,42 @@ client.on('interactionCreate', async interaction => {
                     .setColor(BLUE).setFooter({ text: 'SMVLL HUB • HS CORP' }).setTimestamp()
                 ]
             });
+        }
+
+        else if (cmd === 'purge-tickets') {
+            const guild = interaction.guild;
+            const toDelete = guild.channels.cache.filter(ch =>
+                /^(ticket|closed)-/i.test(ch.name)
+            );
+
+            if (toDelete.size === 0) {
+                return interaction.editReply({
+                    embeds: [new EmbedBuilder().setDescription('⚠️ Aucun salon ticket/closed trouvé.').setColor(YELLOW)]
+                });
+            }
+
+            let deleted = 0, failed = 0;
+            for (const [, ch] of toDelete) {
+                try { await ch.delete('purge-tickets command'); deleted++; }
+                catch { failed++; }
+            }
+
+            await interaction.editReply({
+                embeds: [new EmbedBuilder()
+                    .setTitle('🗑️ Tickets purgés')
+                    .addFields(
+                        { name: '✅ Supprimés', value: `${deleted}`, inline: true },
+                        { name: '❌ Échecs',    value: `${failed}`,  inline: true }
+                    )
+                    .setColor(deleted > 0 ? GREEN : RED)
+                    .setFooter({ text: 'SMVLL HUB • HS CORP' }).setTimestamp()
+                ]
+            });
+            sendLog('🗑️ Tickets purgés', [
+                { name: '✅ Supprimés', value: `${deleted}`,          inline: true },
+                { name: '❌ Échecs',    value: `${failed}`,           inline: true },
+                { name: '👮 Par',       value: interaction.user.tag,  inline: true }
+            ], RED);
         }
 
         else if (cmd === 'panel') {
