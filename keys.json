@@ -33,5 +33,12 @@
     "expiry": null,
     "hwid": "56ae9819-50c1-479a-a05a-ae25d0f856a4",
     "createdAt": 1780139434
+  },
+  "SMVLL-BRVOE-2MY47-CGW1D": {
+    "discordId": "1446790489411162206",
+    "discordTag": "n.e2k",
+    "expiry": null,
+    "hwid": null,
+    "createdAt": 1780144513
   }
 }
