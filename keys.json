@@ -47,5 +47,12 @@
     "expiry": null,
     "hwid": "955bbe3f-29bb-42f9-81ac-581e61c1a9cd",
     "createdAt": 1780249219
+  },
+  "SMVLL-0FSZO-Y2SNV-1R8LE": {
+    "discordId": "1221410401976057988",
+    "discordTag": "mrsan1",
+    "expiry": 1782842400,
+    "hwid": null,
+    "createdAt": 1780250400
   }
 }
