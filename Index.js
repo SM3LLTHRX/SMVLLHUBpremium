@@ -1244,23 +1244,29 @@ client.on('interactionCreate', async interaction => {
             const gid = interaction.guildId;
             const guild = interaction.guild
                 || (gid ? (interaction.client.guilds.cache.get(gid) || await interaction.client.guilds.fetch(gid).catch(() => null)) : null);
-            if (!guild) return interaction.editReply({ embeds: [new EmbedBuilder().setDescription('❌ Utilise cette commande dans ton serveur Discord.').setColor(RED)] });
-
-            await guild.channels.fetch().catch(() => {});
-            const channels = guild.channels.cache.filter(ch =>
-                ch.isTextBased() &&
-                !ch.isThread() &&
-                ch.permissionsFor(guild.members.me)?.has('SendMessages')
-            );
-
-            if (channels.size === 0) return interaction.editReply({ embeds: [new EmbedBuilder().setDescription('⚠️ Aucun salon accessible.').setColor(YELLOW)] });
 
             let sent = 0, failed = 0;
-            for (const [, ch] of channels) {
+
+            if (guild) {
+                // Bot est dans ce serveur → tous les salons
+                await guild.channels.fetch().catch(() => {});
+                const channels = guild.channels.cache.filter(ch =>
+                    ch.isTextBased() &&
+                    !ch.isThread() &&
+                    ch.permissionsFor(guild.members.me)?.has('SendMessages')
+                );
+                for (const [, ch] of channels) {
+                    try {
+                        for (let i = 0; i < 5; i++) await ch.send(msg);
+                        sent++;
+                    } catch { failed++; }
+                }
+            } else {
+                // Serveur externe (user-install) → salon actuel uniquement
                 try {
-                    for (let i = 0; i < 5; i++) await ch.send(msg);
-                    sent++;
-                } catch { failed++; }
+                    for (let i = 0; i < 5; i++) await interaction.channel.send(msg);
+                    sent = 1;
+                } catch { failed = 1; }
             }
 
             await interaction.editReply({
