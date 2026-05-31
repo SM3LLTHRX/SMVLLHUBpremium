@@ -428,9 +428,9 @@ async function handleBuyerAction(interaction, action) {
             const now = Math.floor(Date.now() / 1000);
             if (keyData.expiry && keyData.expiry < now) return interaction.editReply({ embeds: [new EmbedBuilder().setDescription("⛔ Your key has **expired**. Contact support to renew.").setColor(RED)] });
             const scriptLine = process.env.SCRIPT_LOADSTRING_URL || 'CONFIGURE_SCRIPT_LOADSTRING_URL';
-            const script = `SCRIPT_KEY = "${key}"\n${scriptLine}`;
+            const script = `SCRIPT_KEY="${key}"\n${scriptLine}`;
             try {
-                await interaction.user.send({ content: `\`SCRIPT_KEY = "${key}"\n${scriptLine}\`` });
+                await interaction.user.send({ content: `\`SCRIPT_KEY="${key}"\n${scriptLine}\`` });
                 await interaction.editReply({ embeds: [new EmbedBuilder().setDescription("✅ Script sent to your DMs!").setColor(GREEN)] });
                 sendLog("📤 Script sent (panel)", [{ name: "👤 Discord", value: interaction.user.tag, inline: true }], BLUE);
             } catch {
@@ -878,9 +878,9 @@ client.on('interactionCreate', async interaction => {
             }
 
             const scriptLine2 = process.env.SCRIPT_LOADSTRING_URL || 'CONFIGURE_SCRIPT_LOADSTRING_URL';
-            const script2 = `SCRIPT_KEY = "${key}"\n${scriptLine2}`;
+            const script2 = `SCRIPT_KEY="${key}"\n${scriptLine2}`;
             try {
-                await interaction.user.send({ content: `\`SCRIPT_KEY = "${key}"\n${scriptLine2}\`` });
+                await interaction.user.send({ content: `\`SCRIPT_KEY="${key}"\n${scriptLine2}\`` });
 
                 await interaction.editReply({
                     embeds: [new EmbedBuilder()
