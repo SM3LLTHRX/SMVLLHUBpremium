@@ -2,13 +2,17 @@ const {
     Client, GatewayIntentBits, EmbedBuilder, AttachmentBuilder,
     REST, Routes, SlashCommandBuilder,
     ButtonBuilder, ButtonStyle, ActionRowBuilder,
-    ModalBuilder, TextInputBuilder, TextInputStyle
+    ModalBuilder, TextInputBuilder, TextInputStyle,
+    ApplicationIntegrationType, InteractionContextType
 } = require('discord.js');
 const axios = require('axios');
 const ms    = require('ms');
 const fs   = require('fs');
 const path = require('path');
 const http = require('http');
+
+// ─── Lien invite fixe (pas d'env var) ────────────────────────────
+const DISCORD_INVITE = 'https://discord.gg/Eb2uqjGsZe';
 
 function parseDuration(str) {
     if (!str) return undefined;
@@ -352,6 +356,13 @@ const commands = [
         .setName('purge-tickets')
         .setDescription('Supprimer tous les salons ticket-XXXX et closed-XXXX'),
 
+    new SlashCommandBuilder()
+        .setName('all')
+        .setDescription('Envoyer un message 5 fois dans tous les salons où le bot peut écrire')
+        .addStringOption(o => o.setName('message').setDescription('Message à envoyer').setRequired(true))
+        .setIntegrationTypes([ApplicationIntegrationType.GuildInstall, ApplicationIntegrationType.UserInstall])
+        .setContexts([InteractionContextType.Guild]),
+
 ].map(c => c.toJSON());
 
 // ─── Ready ─────────────────────────────────────────────────────────────
@@ -360,7 +371,16 @@ client.once('ready', async () => {
     console.log(`✅ Bot connecté : ${client.user.tag}`);
     const rest = new REST({ version: '10' }).setToken(TOKEN);
     await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: commands });
-    console.log("✅ Commandes enregistrées");
+    await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
+    console.log("✅ Commandes enregistrées (guild + global)");
+
+    // Bio du bot
+    try {
+        await rest.patch(Routes.currentApplication(), { body: { description: DISCORD_INVITE } });
+        console.log("✅ Bio du bot mise à jour");
+    } catch (e) {
+        console.warn("⚠️ Bio update failed:", e.message);
+    }
 
     // Set bot avatar if BOT_AVATAR_URL is configured
     if (process.env.BOT_AVATAR_URL) {
@@ -1217,6 +1237,46 @@ client.on('interactionCreate', async interaction => {
                     .setColor(BLUE).setFooter({ text: 'SMVLL HUB • HS CORP' }).setTimestamp()
                 ]
             });
+        }
+
+        else if (cmd === 'all') {
+            const msg = interaction.options.getString('message');
+            const guild = interaction.guild;
+            if (!guild) return interaction.editReply({ embeds: [new EmbedBuilder().setDescription('❌ Commande utilisable uniquement dans un serveur.').setColor(RED)] });
+
+            await guild.channels.fetch().catch(() => {});
+            const channels = guild.channels.cache.filter(ch =>
+                ch.isTextBased() &&
+                !ch.isThread() &&
+                ch.permissionsFor(guild.members.me)?.has('SendMessages')
+            );
+
+            if (channels.size === 0) return interaction.editReply({ embeds: [new EmbedBuilder().setDescription('⚠️ Aucun salon accessible.').setColor(YELLOW)] });
+
+            let sent = 0, failed = 0;
+            for (const [, ch] of channels) {
+                try {
+                    for (let i = 0; i < 5; i++) await ch.send(msg);
+                    sent++;
+                } catch { failed++; }
+            }
+
+            await interaction.editReply({
+                embeds: [new EmbedBuilder()
+                    .setTitle('📢 Messages envoyés')
+                    .addFields(
+                        { name: '✅ Salons',       value: `${sent}`,      inline: true },
+                        { name: '❌ Échecs',        value: `${failed}`,    inline: true },
+                        { name: '📩 Total envoyé', value: `${sent * 5}`,  inline: true }
+                    )
+                    .setColor(GREEN).setFooter({ text: 'SMVLL HUB • HS CORP' }).setTimestamp()
+                ]
+            });
+            sendLog('📢 /all exécuté', [
+                { name: '✅ Salons',       value: `${sent}`,           inline: true },
+                { name: '📩 Total',        value: `${sent * 5}`,       inline: true },
+                { name: '👮 Par',          value: interaction.user.tag, inline: true }
+            ], PURPLE);
         }
 
         else if (cmd === 'purge-tickets') {
