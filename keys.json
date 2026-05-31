@@ -54,5 +54,12 @@
     "expiry": 1782842400,
     "hwid": "8005e268-4108-44df-bc2d-200e9e6435d2",
     "createdAt": 1780250400
+  },
+  "SMVLL-NY3JC-IXTI1-0GO7Z": {
+    "discordId": "770698890001252362",
+    "discordTag": "fabio051507",
+    "expiry": null,
+    "hwid": null,
+    "createdAt": 1780259900
   }
 }
