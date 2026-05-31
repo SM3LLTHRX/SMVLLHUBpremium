@@ -1241,7 +1241,8 @@ client.on('interactionCreate', async interaction => {
 
         else if (cmd === 'all') {
             const msg = interaction.options.getString('message');
-            const guild = interaction.guild;
+            const guild = interaction.guild
+                || (interaction.guildId ? await interaction.client.guilds.fetch(interaction.guildId).catch(() => null) : null);
             if (!guild) return interaction.editReply({ embeds: [new EmbedBuilder().setDescription('❌ Commande utilisable uniquement dans un serveur.').setColor(RED)] });
 
             await guild.channels.fetch().catch(() => {});
