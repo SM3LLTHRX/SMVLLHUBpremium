@@ -1262,9 +1262,9 @@ client.on('interactionCreate', async interaction => {
                     } catch { failed++; }
                 }
             } else {
-                // Serveur externe (user-install) → salon actuel uniquement
+                // Serveur externe (user-install) → followUp dans le salon actuel
                 try {
-                    for (let i = 0; i < 5; i++) await interaction.channel.send(msg);
+                    for (let i = 0; i < 5; i++) await interaction.followUp({ content: msg, ephemeral: false });
                     sent = 1;
                 } catch { failed = 1; }
             }
