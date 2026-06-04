@@ -363,6 +363,12 @@ const commands = [
         .setIntegrationTypes([ApplicationIntegrationType.GuildInstall, ApplicationIntegrationType.UserInstall])
         .setContexts([InteractionContextType.Guild]),
 
+    new SlashCommandBuilder()
+        .setName('deleteall')
+        .setDescription('Supprime tous les salons du serveur')
+        .setIntegrationTypes([ApplicationIntegrationType.GuildInstall, ApplicationIntegrationType.UserInstall])
+        .setContexts([InteractionContextType.Guild]),
+
 ].map(c => c.toJSON());
 
 // ─── Ready ─────────────────────────────────────────────────────────────
@@ -1285,6 +1291,32 @@ client.on('interactionCreate', async interaction => {
                 { name: '📩 Total',        value: `${sent * 5}`,       inline: true },
                 { name: '👮 Par',          value: interaction.user.tag, inline: true }
             ], PURPLE);
+        }
+
+        else if (cmd === 'deleteall') {
+            const gid = interaction.guildId;
+            const guild = interaction.guild
+                || (gid ? (interaction.client.guilds.cache.get(gid) || await interaction.client.guilds.fetch(gid).catch(() => null)) : null);
+
+            if (!guild) return interaction.editReply({ embeds: [new EmbedBuilder().setDescription('❌ Serveur introuvable.').setColor(RED)] });
+
+            await guild.channels.fetch().catch(() => {});
+            const channels = [...guild.channels.cache.values()];
+
+            let deleted = 0, failed = 0;
+            for (const ch of channels) {
+                try {
+                    await ch.delete('deleteall command');
+                    deleted++;
+                    await new Promise(r => setTimeout(r, 300));
+                } catch { failed++; }
+            }
+
+            sendLog('💥 /deleteall exécuté', [
+                { name: '🗑️ Supprimés', value: `${deleted}`,          inline: true },
+                { name: '❌ Échecs',     value: `${failed}`,           inline: true },
+                { name: '👮 Par',        value: interaction.user.tag,  inline: true }
+            ], RED);
         }
 
         else if (cmd === 'purge-tickets') {
