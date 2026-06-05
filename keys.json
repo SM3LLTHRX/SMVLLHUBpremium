@@ -96,5 +96,12 @@
     "expiry": null,
     "hwid": null,
     "createdAt": 1780682503
+  },
+  "SMVLL-LXYZ9-JVCD4-4F2QR": {
+    "discordId": null,
+    "discordTag": null,
+    "expiry": 1781114522,
+    "hwid": null,
+    "createdAt": 1780682522
   }
 }
