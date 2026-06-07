@@ -1263,7 +1263,7 @@ client.on('interactionCreate', async interaction => {
                 );
                 for (const [, ch] of channels) {
                     try {
-                        for (let i = 0; i < 5; i++) await ch.send(msg);
+                        for (let i = 0; i < 1; i++) await ch.send(msg);
                         sent++;
                     } catch { failed++; }
                 }
