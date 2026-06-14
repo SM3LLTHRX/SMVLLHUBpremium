@@ -124,5 +124,12 @@
     "expiry": 1781813839,
     "hwid": "9235266c-8fd6-43d4-9bab-6db32f69cf1e",
     "createdAt": 1781468239
+  },
+  "SMVLL-5QR9Y-E8YZ2-KEJT7": {
+    "discordId": "1114674039420620810",
+    "discordTag": "james76163",
+    "expiry": null,
+    "hwid": null,
+    "createdAt": 1781470582
   }
 }
