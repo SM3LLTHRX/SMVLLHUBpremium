@@ -138,5 +138,12 @@
     "expiry": null,
     "hwid": null,
     "createdAt": 1781473661
+  },
+  "SMVLL-PQRYB-A4QXJ-A28VR": {
+    "discordId": "1440498885595365447",
+    "discordTag": "hwqui",
+    "expiry": 1781905888,
+    "hwid": null,
+    "createdAt": 1781473888
   }
 }
