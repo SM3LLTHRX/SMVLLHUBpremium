@@ -117,5 +117,12 @@
     "expiry": null,
     "hwid": "f5141463-7b16-4cd2-b524-dceff5442e6c",
     "createdAt": 1780699248
+  },
+  "SMVLL-MCXAW-M6481-MOXEA": {
+    "discordId": "1389946797211910172",
+    "discordTag": "yacine_1015_98092",
+    "expiry": 1781554345,
+    "hwid": null,
+    "createdAt": 1781467945
   }
 }
