@@ -152,5 +152,12 @@
     "expiry": null,
     "hwid": "dd28c295-5869-4c61-92ce-e4d0559d7c2d",
     "createdAt": 1781555116
+  },
+  "SMVLL-OWQ5Z-O48OO-NHG85": {
+    "discordId": "1476897402265800764",
+    "discordTag": "hishamontop._36318",
+    "expiry": 1781642261,
+    "hwid": null,
+    "createdAt": 1781555861
   }
 }
