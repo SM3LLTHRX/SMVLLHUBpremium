@@ -166,5 +166,12 @@
     "expiry": 1784232798,
     "hwid": "e709f74e-0533-400f-8743-2b5cb304fe33",
     "createdAt": 1781640798
+  },
+  "SMVLL-LYUT0-OK56D-IZK0B": {
+    "discordId": null,
+    "discordTag": "palmtree_productions",
+    "expiry": 1782310528,
+    "hwid": null,
+    "createdAt": 1781705728
   }
 }
