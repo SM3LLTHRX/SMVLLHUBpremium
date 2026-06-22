@@ -229,5 +229,12 @@
     "expiry": null,
     "hwid": "b1f94d7e-49c7-4e3c-902b-4e3c61f898db",
     "createdAt": 1782162590
+  },
+  "SMVLL-11A3X-0WYL0-D3SYH": {
+    "discordId": "1488118760442171442",
+    "discordTag": "noiel0823",
+    "expiry": null,
+    "hwid": null,
+    "createdAt": 1782165255
   }
 }
