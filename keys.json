@@ -194,5 +194,12 @@
     "expiry": null,
     "hwid": "e7b8497a-11fc-47c5-a953-72a47befa8c2",
     "createdAt": 1782069787
+  },
+  "SMVLL-WIG50-ZN5GW-MJNJI": {
+    "discordId": "1329556538062405795",
+    "discordTag": "pixelgoogle",
+    "expiry": 1782156768,
+    "hwid": null,
+    "createdAt": 1782145968
   }
 }
