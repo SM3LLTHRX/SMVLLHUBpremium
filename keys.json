@@ -208,5 +208,12 @@
     "expiry": null,
     "hwid": "5bb58663-f408-4c03-9e03-828b0a577865",
     "createdAt": 1782146761
+  },
+  "SMVLL-GP2RC-DW61U-NBRTQ": {
+    "discordId": "1494368657814458473",
+    "discordTag": "chp090991",
+    "expiry": 1782149253,
+    "hwid": null,
+    "createdAt": 1782148053
   }
 }
