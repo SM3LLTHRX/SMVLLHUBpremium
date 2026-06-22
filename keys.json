@@ -201,5 +201,12 @@
     "expiry": 1782156768,
     "hwid": null,
     "createdAt": 1782145968
+  },
+  "SMVLL-8EQMP-M2BT4-WHLTR": {
+    "discordId": "1504569527038644445",
+    "discordTag": "asmosurlacapi",
+    "expiry": null,
+    "hwid": null,
+    "createdAt": 1782146761
   }
 }
