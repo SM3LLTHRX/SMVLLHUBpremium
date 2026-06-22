@@ -215,5 +215,12 @@
     "expiry": null,
     "hwid": "2d9678e9-cf28-4106-ac87-9f52e013d80d",
     "createdAt": 1782148053
+  },
+  "SMVLL-16WRT-OMO9A-R0M4G": {
+    "discordId": "1360298408732135706",
+    "discordTag": "nskprime44",
+    "expiry": 1782151812,
+    "hwid": null,
+    "createdAt": 1782151212
   }
 }
