@@ -208,5 +208,12 @@
     "expiry": null,
     "hwid": "309ef57a-bd17-4d95-ba8a-193824c00e1f",
     "createdAt": 1782312699
+  },
+  "SMVLL-N4M2W-RV63P-5367D": {
+    "discordId": null,
+    "discordTag": "chanel_hehe",
+    "expiry": 1784905733,
+    "hwid": null,
+    "createdAt": 1782313733
   }
 }
