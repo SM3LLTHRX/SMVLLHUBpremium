@@ -264,5 +264,12 @@
     "expiry": null,
     "hwid": "a3751c99-7a09-47ec-846a-f95238c688b2",
     "createdAt": 1782248813
+  },
+  "SMVLL-Z655N-9NZ04-PSU5O": {
+    "discordId": "1490708732324217184",
+    "discordTag": "1pv7",
+    "expiry": null,
+    "hwid": null,
+    "createdAt": 1782312699
   }
 }
