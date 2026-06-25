@@ -201,5 +201,12 @@
     "expiry": null,
     "hwid": "3595df56-d74a-474e-86d1-055fefbccd92",
     "createdAt": 1782411505
+  },
+  "SMVLL-YCBMB-TOZGD-391RD": {
+    "discordId": "952628001764442163",
+    "discordTag": "ethanb25087208",
+    "expiry": null,
+    "hwid": null,
+    "createdAt": 1782412127
   }
 }
