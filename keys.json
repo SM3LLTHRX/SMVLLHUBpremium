@@ -250,5 +250,12 @@
     "expiry": 1785099086,
     "hwid": "964c2292-faaf-4175-8905-b2439fcb1efc",
     "createdAt": 1782507086
+  },
+  "SMVLL-0K77B-OXXY8-PXHHN": {
+    "discordId": "1520166899286147204",
+    "discordTag": "energetic_tiger_27582",
+    "expiry": null,
+    "hwid": null,
+    "createdAt": 1782507432
   }
 }
