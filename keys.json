@@ -222,5 +222,12 @@
     "expiry": null,
     "hwid": "c2ed68fa-828a-4308-844a-38027e0142c2",
     "createdAt": 1782485518
+  },
+  "SMVLL-F09PY-OEW8F-1TKQB": {
+    "discordId": "1206640393131794463",
+    "discordTag": "hazzer123_",
+    "expiry": 1782577895,
+    "hwid": null,
+    "createdAt": 1782491495
   }
 }
