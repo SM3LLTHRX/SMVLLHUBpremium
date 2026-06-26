@@ -236,5 +236,12 @@
     "expiry": null,
     "hwid": "bcadf9b4-2726-46c7-9f59-92e98e899b7f",
     "createdAt": 1782495201
+  },
+  "SMVLL-ZT3EC-VP46J-UTPF5": {
+    "discordId": "1368265675872665643",
+    "discordTag": "priimz_narvix",
+    "expiry": 1785096329,
+    "hwid": null,
+    "createdAt": 1782504329
   }
 }
