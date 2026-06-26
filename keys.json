@@ -208,5 +208,12 @@
     "expiry": null,
     "hwid": "b9df4342-0479-40b5-8633-c4e5eda7b1d0",
     "createdAt": 1782412127
+  },
+  "SMVLL-3U7TC-I3Z9O-MJK7S": {
+    "discordId": "1423758846740005057",
+    "discordTag": "9xxxxt",
+    "expiry": 1787664581,
+    "hwid": null,
+    "createdAt": 1782480581
   }
 }
