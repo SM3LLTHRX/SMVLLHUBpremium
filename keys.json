@@ -257,5 +257,12 @@
     "expiry": null,
     "hwid": "186d27a6-4b6e-4983-9a92-799182eeadd0",
     "createdAt": 1782507432
+  },
+  "SMVLL-XOVME-CT3E4-F8J2Q": {
+    "discordId": "1463997334277853194",
+    "discordTag": "leooo62",
+    "expiry": 1785099673,
+    "hwid": null,
+    "createdAt": 1782507673
   }
 }
