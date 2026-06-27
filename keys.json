@@ -285,5 +285,12 @@
     "expiry": null,
     "hwid": "3256df14-d393-4eb5-919a-d82487d012c5",
     "createdAt": 1782560285
+  },
+  "SMVLL-MD4UF-UQL6R-ZZP3D": {
+    "discordId": "1393352625721839717",
+    "discordTag": "vizik0424_41660",
+    "expiry": 1785152761,
+    "hwid": null,
+    "createdAt": 1782560761
   }
 }
