@@ -264,5 +264,12 @@
     "expiry": 1785099673,
     "hwid": "88515f06-6b08-462b-96f9-e435e67363a3",
     "createdAt": 1782507673
+  },
+  "SMVLL-4AYZC-I1RQ7-2PRN3": {
+    "discordId": "1476517768072265775",
+    "discordTag": "nazox0335",
+    "expiry": 1785148760,
+    "hwid": null,
+    "createdAt": 1782556760
   }
 }
